@@ -123,7 +123,7 @@
                         <div>{{ row.endDate }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="days" label="班期">
+                <el-table-column prop="days" label="班期" width="200">
                     <template #default="{ row }">
 
                         <div class="days-container">
@@ -156,7 +156,7 @@
                         </el-tooltip>
                     </template>
                 </el-table-column>
-                <el-table-column label="创建时间" width="180">
+                <el-table-column label="创建时间">
                     <template #default="{ row }">
                         {{ formatDate(row.createTime) }}
                         <!-- <daysPicker v-model="" /> -->

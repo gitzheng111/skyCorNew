@@ -8,11 +8,11 @@
 
             <SeasonSelect v-model="curSeason" />
 
-            <el-select v-model="selectAttribution">
+            <el-select v-model="selectAttribution" style="width: 30%;" >
                 <el-option v-for="item in attributionOption" :key="item" :label="item" :value="item" />
             </el-select>
             <el-upload :auto-upload="false" :on-change="handleFile" accept=".xlsx, .xls">
-                <el-button type="primary">上传Excel文件</el-button>
+                <el-button type="primary" :disabled="!curSeason||!selectAttribution">上传Excel文件</el-button>
             </el-upload>
 
             <el-tag v-if="processedData.length">识别出{{ processedData.length }}条航班</el-tag>
@@ -784,6 +784,24 @@ function confirmConflictSelection() {
 function tableRowClassName({ row }) {
     return row._highlight ? 'highlight-flight' : ''
 }
+
+watch(
+    () => processedData.value,
+    (val) => {
+        addFlightForms.value = mapEditData(processedData.value)
+        console.log('映射到表格数据',addFlightForms.value)
+        // if (val && props.editData) {
+        //     editMode.value = true
+        //     mode.value = 'manAdd'
+        //     console.log('mode',mode.value)
+
+        //     console.log('addFlightForms',addFlightForms.value)
+        // } else {
+        //     addFlightForms.value = []
+        // }
+    },
+    { immediate: true }
+)
 </script>
 
 <style>

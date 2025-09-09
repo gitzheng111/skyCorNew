@@ -9,12 +9,6 @@ const routes = [
   }
   ,
   {
-    path: '/workFlow',
-    name: 'WorkFlow',
-    component: () => import('/src/components/workFlow.vue')
-   
-  },
-  {
     path: '/handMadeOnly',
     name: 'handMadeOnly',
     component: () => import('/src/components/handMadeOnly.vue')
@@ -43,6 +37,13 @@ const routes = [
     path: '/overflyData',
     name: 'overflyData',
     component: () => import('/src/views/overflyData.vue')
+   
+  }
+  ,
+  {
+    path: '/airportInfo',
+    name: 'airportInfo',
+    component: () => import('/src/views/airportInfo.vue')
    
   }
 ]

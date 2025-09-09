@@ -3,11 +3,11 @@ import axios from 'axios';
 const uploadProgress = ref(0)
 
 const api = axios.create({
-  baseURL: 'http://43.138.197.165:3000/api', // 后端服务器地址，根据实际修改
+  baseURL: 'http://43.138.197.165/api', // 后端服务器地址，根据实际修改
   // baseURL: 'http://localhost:3000/api', // 后端服务器地址，根据实际修改
 });
-export const baseFileURL = 'http://43.138.197.165:3000/'
-export const baseURL = 'http://43.138.197.165:3000/api'
+export const baseFileURL = 'http://43.138.197.165/'
+export const baseURL = 'http://43.138.197.165/api'
 export const getFlights = () => api.get('/flights');
 export const getRoutes = () => api.get('/routes');
 export const getPermission = () => api.get('/permission');
@@ -34,6 +34,7 @@ export const addRoutes = (routeForm) => api.post('/routes/add', routeForm, {
   }
 });
 export const addOverflyData = (form) => api.post('/overflyData/add', form);
+export const addAirportCode = (form) => api.post('/airportCode/add', form);
 
 export const addCountryList = (formData) => {
   return axios.post(baseURL + '/country/add', formData, {

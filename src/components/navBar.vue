@@ -26,11 +26,14 @@ const handleSelect = (key) => {
     case '3-1':
       router.push('/routeManage');
       break;
-      case '3-2':
+    case '3-2':
       router.push('/countryList');
       break;
-      case '3-3':
+    case '3-3':
       router.push('/overflyData');
+      break;
+    case '4-1':
+      router.push('/airportInfo');
       break;
   }
   console.log('router', router)
@@ -41,6 +44,9 @@ watch(
   () => route.path, // 关键修复：用 route.path 而不是 router.path
 
   (newPath) => {
+    if (newPath === '/airportInfo') {
+      activeIndex.value = '4-1';
+    }
     if (newPath === '/overflyData') {
       activeIndex.value = '3-3';
     }
@@ -87,6 +93,11 @@ watch(
       <el-menu-item index="3-1">航路信息</el-menu-item>
       <el-menu-item index="3-2">飞越国家管理</el-menu-item>
       <el-menu-item index="3-3">飞越数据管理</el-menu-item>
+
+    </el-sub-menu>
+    <el-sub-menu index="4">
+      <template #title>基础数据</template>
+      <el-menu-item index="4-1">机场数据</el-menu-item>
 
     </el-sub-menu>
   </el-menu>
