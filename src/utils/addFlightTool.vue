@@ -1,5 +1,5 @@
 <template>
-    <el-dialog v-model="visible" :title="editMode ? '编辑航班' : '新增航班'"  width="90%">
+    <el-dialog v-model="visible" :title="editMode ? '编辑航班' : '新增航班'" width="90%">
         <el-select v-model="mode" placeholder="请选择输入方式" style="margin-bottom: 20px;">
             <el-option v-for="item in modeOption" :key="item" :label="modeLabels[item]" :value="item" />
         </el-select>
@@ -8,31 +8,21 @@
 
             <SeasonSelect v-model="curSeason" />
 
-            <el-select v-model="selectAttribution" style="width: 30%;" >
+            <el-select v-model="selectAttribution" style="width: 30%;">
                 <el-option v-for="item in attributionOption" :key="item" :label="item" :value="item" />
             </el-select>
             <el-upload :auto-upload="false" :on-change="handleFile" accept=".xlsx, .xls">
-                <el-button type="primary" :disabled="!curSeason||!selectAttribution">上传Excel文件</el-button>
+                <el-button type="primary" :disabled="!curSeason || !selectAttribution">上传Excel文件</el-button>
             </el-upload>
 
             <el-tag v-if="processedData.length">识别出{{ processedData.length }}条航班</el-tag>
             <el-tag v-if="intlFlight.length">识别出{{ intlFlight.length }}条国际航班</el-tag>
             <el-tag v-if="countryFlight.length">识别出{{ countryFlight.length }}条国内航班</el-tag>
 
-            <!-- 航段表格 -->
+            <!-- excel数据表格 -->
             <el-table :data="processedData" v-if="processedData.length" max-height="500"
                 :row-class-name="tableRowClassName">
-                <el-table-column prop="season" label="航季" />
-                <el-table-column prop="attribution" label="性质" />
-
-                <el-table-column prop="flightNo" label="航班号" />
-                <el-table-column prop="aircraft" label="机型" />
-                <el-table-column prop="days" label="班期" />
-                <el-table-column prop="depAirport" label="起飞机场" />
-                <el-table-column prop="depTime" label="起飞时间" />
-                <el-table-column prop="arrAirport" label="落地机场" />
-                <el-table-column prop="arrTime" label="落地时间" />
-                <el-table-column prop="flightType" label="航班类型" />
+                <el-table-column v-for="col in columns" :key="col.prop" :prop="col.prop" :label="col.label" />
             </el-table>
             <el-button @click="syncDataToFather">确认上传数据</el-button>
             <!-- 时间冲突选择弹窗 -->
@@ -259,7 +249,18 @@ watch(curSeason, (val) => {
     selectedSeason.value = seasonData.value.find(item => item.en === val)
     console.log('选中的完整航季:', selectedSeason)
 })
-
+const columns = [
+  { prop: 'season', label: '航季' },
+  { prop: 'attribution', label: '性质' },
+  { prop: 'flightNo', label: '航班号' },
+  { prop: 'aircraft', label: '机型' },
+  { prop: 'days', label: '班期' },
+  { prop: 'depAirport', label: '起飞机场' },
+  { prop: 'depTime', label: '起飞时间' },
+  { prop: 'arrAirport', label: '落地机场' },
+  { prop: 'arrTime', label: '落地时间' },
+  { prop: 'flightType', label: '航班类型' }
+]
 const emptyForm = () => ({
     season: '',
     attribution: '',
@@ -279,33 +280,33 @@ const addFlightForms = ref([])
 // 映射父组件传来的编辑数据到表单结构
 const mapEditData = (data) => {
     const arrayData = Array.isArray(data) ? data : [data];
-  return arrayData.map(f => ({
-    flight_id:f.flight_id,
-    season: f.season || '',
-    attribution: f.attribution || '',
-    flightNumber: f.flightNo || f.flightNumber || '',
-    departure: f.depAirport || f.departure || '',
-    departureTime: f.depTime || f.departureTime || '',
-    arrival: f.arrAirport || f.arrival || '',
-    arrivalTime: f.arrTime || f.arrivalTime || '',
-    aircraftType: f.aircraft || '',
-    startDate: f.startDate || '',
-    endDate: f.endDate || '',
-    days: Array.isArray(f.days) ? f.days : (f.days ? f.days.split('') : []),
-  }))
+    return arrayData.map(f => ({
+        flight_id: f.flight_id,
+        season: f.season || '',
+        attribution: f.attribution || '',
+        flightNumber: f.flightNo || f.flightNumber || '',
+        departure: f.depAirport || f.departure || '',
+        departureTime: f.depTime || f.departureTime || '',
+        arrival: f.arrAirport || f.arrival || '',
+        arrivalTime: f.arrTime || f.arrivalTime || '',
+        aircraftType: f.aircraft || '',
+        startDate: f.startDate || '',
+        endDate: f.endDate || '',
+        days: Array.isArray(f.days) ? f.days : (f.days ? f.days.split('') : []),
+    }))
 }
 const editMode = ref(false)
 watch(
     () => props.isEditing,
     (val) => {
-        console.log('props.editData',props.editData,' props.isEditing', props.isEditing)
+        console.log('props.editData', props.editData, ' props.isEditing', props.isEditing)
         if (val && props.editData) {
             editMode.value = true
             mode.value = 'manAdd'
             addFlightForms.value = mapEditData(props.editData)
-            console.log('mode',mode.value)
+            console.log('mode', mode.value)
 
-            console.log('addFlightForms',addFlightForms.value)
+            console.log('addFlightForms', addFlightForms.value)
         } else {
             addFlightForms.value = []
         }
@@ -393,7 +394,7 @@ const syncDataToFather = (source) => {
     }
     console.log('needToMapData', needToMapData)
     const mappedData = needToMapData.value.map(f => ({
-        flight_id:f.flight_id||'',
+        flight_id: f.flight_id || '',
         season: f.season,
         attribution: f.attribution,
         flightNumber: f.flightNo || f.flightNumber,
@@ -789,7 +790,7 @@ watch(
     () => processedData.value,
     (val) => {
         addFlightForms.value = mapEditData(processedData.value)
-        console.log('映射到表格数据',addFlightForms.value)
+        console.log('映射到表格数据', addFlightForms.value)
         // if (val && props.editData) {
         //     editMode.value = true
         //     mode.value = 'manAdd'

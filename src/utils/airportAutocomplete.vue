@@ -27,7 +27,7 @@ import { airportCodeList } from '../api'
 //     airportSelect: String
 // })
 // const emit = defineEmits(['update:airportSelect'])
-console.log('airportCodeData',airportCodeList)
+// console.log('airportCodeData',airportCodeList)
 const props = defineProps({
   modelValue: String // 用于 v-model
 })

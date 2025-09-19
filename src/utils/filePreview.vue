@@ -46,6 +46,7 @@ const props = defineProps({
     inline:Boolean
 
 })
+console.log('预览的文件',props.file)
 const emit = defineEmits(['update:visible', 'extract-fields'])
 
 const visible = ref(props.visible)
@@ -60,6 +61,7 @@ watch(
     () => props.file,
     async (file) => {
         if (!file) return
+        console.log('预览的文件',file)
         if (file.source == 'net') {
             console.log('读取网络file', file)
 

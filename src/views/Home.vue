@@ -43,11 +43,11 @@ const loadFlightData = async () => {
             f.departure === flight.departure &&
             f.arrival === flight.arrival
           );
-          console.log('flightMatch',flightMatch)
+          // console.log('flightMatch',flightMatch)
           const routeMatch = Array.isArray(item.overflyDetails) && item.overflyDetails.some(r =>
             r.routeCode.find(i=>i ==route.routeCode )
           );
-          console.log('routeMatch',routeMatch)
+          // console.log('routeMatch',routeMatch)
 
           return flightMatch && routeMatch;
         });

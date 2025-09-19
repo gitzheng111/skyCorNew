@@ -1,27 +1,6 @@
 <!-- applyDoc.vue -->
 <template>
-    <!-- <el-dialog title="申请文件生成中" width="60%" v-model="visible" :close-on-click-modal="false"
-        :before-close="handleBeforeClose" @close="handleClose" v-bind="$attrs">
-        <template #default>
-            <div v-if="loading" class="loading-container">
-                <el-progress :percentage="progressPercent" />
-                <p>模板加载中，请稍候...</p>
-            </div>
-            <div v-else class="result-container">
-                <el-result icon="success" title="生成成功">
-                    <template #extra>
-                        <p>申请文件已生成，点击下方按钮下载。</p>
-                    </template>
-</el-result>
-</div>
-</template>
-<template #footer>
-            <el-button @click="visible = false">取消</el-button>
-            <el-button type="primary" @click="downloadDoc" :loading="downloading">
-                下载申请文件
-            </el-button>
-        </template>
-</el-dialog> -->
+
 
     <el-dialog title="申请文件生成中" width="98%" v-model="visible" :close-on-click-modal="false" :before-close="handleClose">
         <!-- 内容区域 -->
@@ -80,39 +59,39 @@ const visible = ref(false)
 const loading = ref(false)
 const docBlob = ref(null)
 const curCountryApplyData = ref()
-// watch(() => props.curCountryData, (newValue, oldValue) => {
-//     // 当 curCountryData 发生变化时，更新 curCountryApplyData
-//     if (newValue) {
-//         curCountryApplyData.value = newValue|| {};  // 假设 applyData 是需要的部分
-//         console.log('curCountryApplyData.value',curCountryApplyData.value)
-//         console.log('curCountryInfo.value',props.curCountryInfo)
-//         console.log('curTaskData.value',props.curTaskData)
+watch(() => props.curCountryData, (newValue, oldValue) => {
+    // 当 curCountryData 发生变化时，更新 curCountryApplyData
+    if (newValue) {
+        curCountryApplyData.value = newValue|| {};  // 假设 applyData 是需要的部分
+        console.log('curCountryApplyData.value',curCountryApplyData.value)
+        // console.log('curCountryInfo.value',props.curCountryInfo)
+        // console.log('curTaskData.value',props.curTaskData)
 
-//     }
-// }, { immediate: true });  
-watch(
-    [() => props.curCountryInfo, () => props.curTaskData], // 监听 curCountryInfo 和 curTaskData
-    (newValues, oldValues) => {
-        const [newCountryInfo, newTaskData] = newValues;
-        // 如果 curCountryInfo 和 curTaskData 都有值
-        if (newCountryInfo && newTaskData) {
-            // 根据 curTaskData 中的数据找到对应的 country
-            const countryData = newTaskData.data.find(
-                (item) => item.overflyCountry === newCountryInfo.country
-            );
-            if (countryData) {
-                curCountryApplyData.value = countryData; // 更新 curCountryApplyData
-                console.log('更新后的 curCountryApplyData:', curCountryApplyData.value);
-            } else {
-                console.log('没有找到匹配的 country 数据');
-            }
-        }
+    }
+}, { immediate: true });  
+// watch(
+//     [() => props.curCountryInfo, () => props.curTaskData], // 监听 curCountryInfo 和 curTaskData
+//     (newValues, oldValues) => {
+//         const [newCountryInfo, newTaskData] = newValues;
+//         // 如果 curCountryInfo 和 curTaskData 都有值
+//         if (newCountryInfo && newTaskData) {
+//             // 根据 curTaskData 中的数据找到对应的 country
+//             const countryData = newTaskData.data.find(
+//                 (item) => item.overflyCountry === newCountryInfo.country
+//             );
+//             if (countryData) {
+//                 curCountryApplyData.value = countryData; // 更新 curCountryApplyData
+//                 console.log('更新后的 curCountryApplyData:', curCountryApplyData.value);
+//             } else {
+//                 console.log('没有找到匹配的 country 数据');
+//             }
+//         }
 
-        // console.log('curCountryInfo:', newCountryInfo);
-        // console.log('curTaskData:', newTaskData);
-    },
-    { immediate: true } // 立即执行回调
-);
+//         // console.log('curCountryInfo:', newCountryInfo);
+//         // console.log('curTaskData:', newTaskData);
+//     },
+//     { immediate: true } // 立即执行回调
+// );
 const handleClose = () => {
     emit('update:show', false)
     emit('closed')
@@ -175,15 +154,21 @@ function calcActualTime(departureTime, offsetTime) {
 
     let totalMinutes = (depH + offH) * 60 + (depM + offM);
 
-    // 跨天处理
     totalMinutes = totalMinutes % (24 * 60);
 
     const h = Math.floor(totalMinutes / 60)
         .toString()
         .padStart(2, "0");
     const m = (totalMinutes % 60).toString().padStart(2, "0");
+    
+    const depMinutes = depH * 60 + depM;
+    // const arrMinutes = arrH * 60 + arrM;
 
+    if (totalMinutes < depMinutes) {
+        return `${h}${m}+1`; // 跨天
+    }
     return `${h}${m}`;
+    // return `${h}${m}`;
 }
 function transformFlightNumber(flightNumber) {
     if (!flightNumber) return "";
@@ -191,6 +176,7 @@ function transformFlightNumber(flightNumber) {
     const digits = flightNumber.match(/\d+$/);
     return digits ? `CXA${digits[0]}` : `CXA`;
 }
+//跨天处理
 function getShowArrivalTime(departureTime, arrivalTime) {
     if (!departureTime || !arrivalTime) return "";
     const depUTC = beijingToUTC(departureTime)
@@ -215,7 +201,7 @@ function getShowArrivalTime(departureTime, arrivalTime) {
 }
 const generateDocNew = async () => {
     loading.value = true;
-    console.log('curCountryApplyData.value', curCountryApplyData.value)
+    console.log('变化前的申请数据curCountryApplyData.value', curCountryApplyData.value)
 
     if (!props.curCountryInfo || !props.curCountryInfo.scheduleTemplate) {
         console.error("scheduleTemplate 数据缺失!");

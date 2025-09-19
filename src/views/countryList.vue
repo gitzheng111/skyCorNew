@@ -505,7 +505,8 @@ const previewFile = (file) => {
     }
     currentFile.value = {
         ...toRaw(file),
-        url: fullUrl
+        url: fullUrl,
+        source:'net'
     }
     console.log('currentFile', currentFile)
     previewVisible.value = true

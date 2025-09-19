@@ -5,7 +5,7 @@
             删除
         </el-button>
     </div>
-    <addDataTool v-model:visible="showAddDataVisible" @parsed="handleSubmitData"/>
+    <addDataTool v-model:visible="showAddDataVisible" :mode="'airport'" @parsed="handleSubmitData"/>
     <el-table :data="airportCodeList" style="width: 100%" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column label="机场/中文" prop="chineseName"></el-table-column>

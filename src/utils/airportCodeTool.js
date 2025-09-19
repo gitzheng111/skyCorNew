@@ -18,10 +18,10 @@ export const transferToOutput = (input, output) => {
             airport.IATACode?.toUpperCase() === input ||
             airport.ICAOCode?.toUpperCase() === input ||
             airport.chineseName === input ||
-            airport.englishName?.toLowerCase() === input.toLowerCase()
+            airport.englishName?.toUpperCase() === input.toUpperCase()
         );
     });
     console.log('match',match)
 
-    return match ? match[output] || null : null;
+    return match ? match[output] || input : null;
 };

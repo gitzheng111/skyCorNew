@@ -162,12 +162,7 @@
                         <!-- <daysPicker v-model="" /> -->
                     </template>
                 </el-table-column>
-                <!-- <el-table-column label="准备进度">
-                    <template #default="{ row }">
-                        <el-progress :percentage="calculateProgress(row)" :status="getProgressStatus(row)"
-                            :text-inside="true" :stroke-width="20" />
-                    </template>
-                </el-table-column> -->
+              
                 <el-table-column fixed="right" label="Operations" min-width="120">
                     <!-- <template #default="{ row }">
                         <el-button link type="primary" size="small" @click="deleteFlight(row.flight_id)">
@@ -181,7 +176,7 @@
                     </template>
                 </el-table-column>
             </el-table>
-
+            <!-- <addDataTool :mode="'flight'" v-model:visible="addFlightVisible" :isEditing="editFlightMode" @parsed="handleProcessData" :editData="editDataFromFather" :originData="parentFlights"/> -->
             <addFlightTool v-model:visible="addFlightVisible" :isEditing="editFlightMode" @parsed="handleProcessData"
                 :editData="editDataFromFather" :originData="parentFlights" />
             <el-dialog v-model="showDeleteFlight" title="删除航班" width="500" :before-close="handleClose">
@@ -422,6 +417,8 @@ import addFlightTool from '../utils/addFlightTool.vue'
 import overflyDataView from '../utils/overflyDataView.vue'
 import { formatDate } from '../utils/tool.js'
 import flightCard from '../utils/flightCard.vue'
+import addDataTool from '../utils/addDataTool.vue'
+
 const router = useRouter()
 const parentFlights = ref([])
 const parentRoutes = ref([])
@@ -666,7 +663,7 @@ const handleProcessData = async (processedDataFromChild) => {
     addFlightForms.value = processedDataFromChild.length
         ? processedDataFromChild
         : [emptyFlight()]
-    console.log('addFlightForms', addFlightForms.value)
+    console.log('父组件处理addFlightForms', addFlightForms.value)
     await onSubmit()
 
 }
@@ -695,8 +692,10 @@ const onSubmit = async () => {
         console.log('flightResponse ====', flightResponse)
     } else {
 
-        const flightResponse = await addFlightsBatchs(finalData).then(() => {
+        const flightResponse = await addFlightsBatchs(finalData).then(async() => {
             ElMessage.success('添加成功');
+            const newFlightResponse = await getFlights();
+            flightsData.value = newFlightResponse.data
         }).catch(err => {
             console.error('添加失败:', err);
         });

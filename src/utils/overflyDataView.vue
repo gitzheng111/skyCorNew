@@ -37,20 +37,21 @@ const props = defineProps({
     id: String,
     allData: [Array, Object],
     curSeason: String,
+    mode: String,
 
 })
 const emit = defineEmits(['updateFinish'])
 
 // const overflyDetails = computed(() => props.overflyDataFromFather)
-const overflyDetails = computed(() => {
-    // 如果传进来是数组，直接用；如果是对象，就包成数组；否则空数组
-    if (Array.isArray(props.overflyDataFromFather)) {
-        return props.overflyDataFromFather
-    } else if (props.overflyDataFromFather && typeof props.overflyDataFromFather === 'object') {
-        return [props.overflyDataFromFather]
-    }
-    return []
-})
+// const overflyDetails = computed(() => {
+//     // 如果传进来是数组，直接用；如果是对象，就包成数组；否则空数组
+//     if (Array.isArray(props.overflyDataFromFather)) {
+//         return props.overflyDataFromFather
+//     } else if (props.overflyDataFromFather && typeof props.overflyDataFromFather === 'object') {
+//         return [props.overflyDataFromFather]
+//     }
+//     return []
+// })
 const deleteRow = (index) => {
     editableData.value.splice(index, 1)
 }
@@ -75,7 +76,7 @@ const fieldOrder = [
 
     "exitPoint",
     "exitPoint",
-    
+
     "exitTime",
     "actualExitTime",
 
@@ -99,14 +100,14 @@ const fieldLabelMap = {
     sector: "航段",
     altEntryPointer: '备用入境点',
     altExitPointer: '备用出境点',
-    actualEntryTime:'实际入境时间',
-    actualExitTime:'实际出境时间'
+    actualEntryTime: '实际入境时间',
+    actualExitTime: '实际出境时间'
 
 
 };
 // 可以编辑的列
 const isEditable = (col) => {
-    return ["ATSroute", "entryPoint", "entryTime", "exitPoint", "exitTime", "EET", "flightLevel", "speed", "altEntryPointer", "altExitPointer","actualEntryTime","actualExitTime"].includes(col)
+    return ["ATSroute", "entryPoint", "entryTime", "exitPoint", "exitTime", "EET", "flightLevel", "speed", "altEntryPointer", "altExitPointer", "actualEntryTime", "actualExitTime"].includes(col)
 }
 
 // 格式化单元格显示
@@ -121,27 +122,38 @@ const cancelEidt = () => {
 const toggleEdit = async () => {
     if (isEditing.value) {
         // 点击保存，发送请求
-        const targetDataIndex = props.allData.data.findIndex(item => item.season == props.curSeason)
-        if (targetDataIndex !== -1) {
-            // 深拷贝 allData 避免直接修改 props
-            const submitData = JSON.parse(JSON.stringify(props.allData))
-            // 替换当前航季的数据
-            submitData.data[targetDataIndex].data = editableData.value
-            console.log(' submitData', submitData)
-            try {
-                await updateOverflyData(submitData)
-                ElMessage.success('更新成功')
-                isEditing.value = false
-                emit('updateFinish')
-            } catch (err) {
-                console.error(err)
-                ElMessage.error('更新失败')
+        console.log('props.allData', props.allData)
+        if (props.mode == 'forever') {
+            const targetDataIndex = props.allData.data.findIndex(item => item.season == props.curSeason)
+            if (targetDataIndex !== -1) {
+                // 深拷贝 allData 避免直接修改 props
+                const submitData = JSON.parse(JSON.stringify(props.allData))
+                // 替换当前航季的数据
+                submitData.data[targetDataIndex].data = editableData.value
+                console.log(' submitData', submitData)
+                try {
+                    await updateOverflyData(submitData)
+                    ElMessage.success('更新成功')
+                    isEditing.value = false
+                    emit('updateFinish')
+                } catch (err) {
+                    console.error(err)
+                    ElMessage.error('更新失败')
+                }
+                // 发送给后端
+            } else {
+                ElMessage.warning('未找到对应航季的数据')
+
             }
-            // 发送给后端
-        } else {
-            ElMessage.warning('未找到对应航季的数据')
+        }
+        if (props.mode == 'temp') {
+            console.log('编辑的editableData.value',editableData.value)
+
+            isEditing.value = false
+            emit('updateFinish',editableData.value)
 
         }
+
         // return
 
     } else {

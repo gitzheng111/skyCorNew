@@ -225,7 +225,7 @@
                             <el-button v-if="curCountry == '越南'" type="success"
                                 @click="applyExtractRoutes">提取成该国申请格式航路</el-button>
 
-                            <overflyDataView :overflyDataFromFather="item.overflyDetails" />
+                            <overflyDataView mode="temp" :overflyDataFromFather="item.overflyDetails" @updateFinish="refreshOverflyData"/>
                         </div>
                         <el-divider>飞越申请</el-divider>
                         <div>
@@ -543,7 +543,7 @@ const currentStep = computed(() => {
 })
 
 const getTimelineNode = (done, isCurrent) => {
-    console.log('done', done, 'isCurrent', isCurrent)
+    // console.log('done', done, 'isCurrent', isCurrent)
     if (done) {
         return {
             icon: CircleCheckFilled,
@@ -660,7 +660,16 @@ const viewTask = async (key) => {
 
     taskLoading.value = false
 }
+const refreshOverflyData = async (newData) => {
+    console.log('curCountryData',curCountryData.value)
 
+    console.log('临时更新的data',newData)
+
+    // console.log('当前的viewData',viewData)
+    curCountryData.value.overflyDetails = newData
+    console.log('变化后的curCountryData',curCountryData.value)
+
+}
 function dedupeOverflyDetails(overflyDetails) {
     const seen = new Set();
     return overflyDetails.filter(detail => {

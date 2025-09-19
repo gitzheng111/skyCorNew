@@ -6,7 +6,7 @@ const api = axios.create({
   baseURL: 'http://43.138.197.165/api', // 后端服务器地址，根据实际修改
   // baseURL: 'http://localhost:3000/api', // 后端服务器地址，根据实际修改
 });
-export const baseFileURL = 'http://43.138.197.165/'
+export const baseFileURL = 'http://43.138.197.165:3000/'
 export const baseURL = 'http://43.138.197.165/api'
 export const getFlights = () => api.get('/flights');
 export const getRoutes = () => api.get('/routes');
