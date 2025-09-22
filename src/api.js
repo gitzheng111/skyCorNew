@@ -34,8 +34,15 @@ export const addRoutes = (routeForm) => api.post('/routes/add', routeForm, {
   }
 });
 export const addOverflyData = (form) => api.post('/overflyData/add', form);
-export const addAirportCode = (form) => api.post('/airportCode/add', form);
-
+export const addAirportCode = (form) => api.post('/airportCode/addBatch', form);
+// export const addAirportCode = (form) => api.post('/country/addAirport', form);
+// export const addAirportCode = (formData) => {
+//   return axios.post(baseURL + '/country/addAirport', formData, {
+//     headers: {
+//       'Content-Type': 'multipart/form-data'
+//     }
+//   })
+// }
 export const addCountryList = (formData) => {
   return axios.post(baseURL + '/country/add', formData, {
     headers: {
@@ -43,6 +50,8 @@ export const addCountryList = (formData) => {
     }
   })
 }
+
+
 export const updateRoutes = (routeForm) => api.post('/routes/updateBatch', routeForm);
 export const updateOverflyData = (data) => api.post('/overflyData/updateBatch',data);
 
@@ -70,7 +79,9 @@ export const deleteTaskByIds = (ids) => {
 
 // export const deleteFlights = (flight_id) => api.delete(`/flights/delete?flight_id=${flight_id}`);
 export const deleteFlights = (flight_id) => api.delete(`/flights/delete/${flight_id}`);
-
+export const deleteAirportByIds = (ids) => {
+  return api.post('/airportCode/deleteBatch', { ids })
+}
 import { ref } from 'vue'
 export const flightsData = ref([]);
 export const aircraftData = ref([]);

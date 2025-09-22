@@ -125,6 +125,10 @@
                 </el-table-column>
                 <el-table-column prop="days" label="班期" width="200">
                     <template #default="{ row }">
+                        <DaysShow :days="row.days"/>
+
+                    </template>
+                    <!-- <template #default="{ row }">
 
                         <div class="days-container">
                             <el-tag v-for="(day, index) in daysOfWeek" :key="index" :class="{
@@ -138,7 +142,7 @@
 
                         </div>
 
-                    </template>
+                    </template> -->
 
                 </el-table-column>
                 <el-table-column label="机型">
@@ -418,7 +422,7 @@ import overflyDataView from '../utils/overflyDataView.vue'
 import { formatDate } from '../utils/tool.js'
 import flightCard from '../utils/flightCard.vue'
 import addDataTool from '../utils/addDataTool.vue'
-
+import DaysShow from  '../utils/daysShow.vue'
 const router = useRouter()
 const parentFlights = ref([])
 const parentRoutes = ref([])
@@ -472,24 +476,6 @@ const timeModeOptions = ['PKT', 'UTC', 'LOC']
 // const daysOfWeek = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const daysOfWeek = ['1', '2', '3', '4', '5', '6', '7']
 
-const parseDays = (daysStr) => {
-    if (!daysStr) return []
-
-    const weekMap = {
-        '1': '周一',
-        '2': '周二',
-        '3': '周三',
-        '4': '周四',
-        '5': '周五',
-        '6': '周六',
-        '7': '周日'
-    }
-    // console.log('输入的days', daysStr, daysStr.split('').map(num => weekMap[num] || num)
-    // )
-
-    return daysStr.split('').map(num => weekMap[num] || num)
-
-}
 const today = new Date();
 const seasonData = ref([]);
 const curSeason = ref({})
@@ -693,7 +679,7 @@ const onSubmit = async () => {
     } else {
 
         const flightResponse = await addFlightsBatchs(finalData).then(async() => {
-            ElMessage.success('添加成功');
+            ElMessage.success('航班数据添加成功');
             const newFlightResponse = await getFlights();
             flightsData.value = newFlightResponse.data
         }).catch(err => {

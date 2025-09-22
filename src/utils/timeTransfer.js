@@ -201,6 +201,6 @@ export function strToDate(timeStr) {
     const minutes = parseInt(timeStr.slice(2, 4), 10)
     const d = new Date()
     d.setHours(hours, minutes, 0, 0)
-    console.log('输入的timeStr',timeStr,'输出的d',d)
+    // console.log('输入的timeStr',timeStr,'输出的d',d)
     return d
   }

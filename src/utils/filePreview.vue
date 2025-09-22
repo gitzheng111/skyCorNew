@@ -46,7 +46,7 @@ const props = defineProps({
     inline:Boolean
 
 })
-console.log('预览的文件',props.file)
+// console.log('预览的文件',props.file)
 const emit = defineEmits(['update:visible', 'extract-fields'])
 
 const visible = ref(props.visible)
@@ -61,17 +61,17 @@ watch(
     () => props.file,
     async (file) => {
         if (!file) return
-        console.log('预览的文件',file)
+        // console.log('预览的文件',file)
         if (file.source == 'net') {
-            console.log('读取网络file', file)
+            // console.log('读取网络file', file)
 
             if (!file?.url || !file.name) return
             // fileName.value = fixEncoding(file.name)
             fileName.value = file.name
             const ext = file.name.split('.').pop().toLowerCase()
-            console.log('ext', ext)
+            // console.log('ext', ext)
             previewType.value = ext
-            console.log('previewType', previewType)
+            // console.log('previewType', previewType)
             loading.value = true
             const encodedURL = encodeURI(file.url)
 
@@ -82,7 +82,7 @@ watch(
                     const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
 
                     previewContent.value = buffer
-                    console.log('previewContent', previewContent.value)
+                    // console.log('previewContent', previewContent.value)
                     await extractDocxVariables(buffer)
                 } else if (ext === 'xlsx') {
                     const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
@@ -98,13 +98,13 @@ watch(
             }
         } else {
 
-            console.log('读取本地file', file)
+            // console.log('读取本地file', file)
 
             previewType.value = file.type
             loading.value = true
             try {
                 previewContent.value = file.URL
-                console.log('previewContent',previewContent.value)
+                // console.log('previewContent',previewContent.value)
             } catch (e) {
                 console.error('预览失败', e)
                 previewContent.value = null
@@ -148,7 +148,7 @@ const extractFieldsFromText = (text) => {
 }
 
 onMounted(() => {
-    console.log('file-preview mounted')
+    // console.log('file-preview mounted')
 })
 </script>
 

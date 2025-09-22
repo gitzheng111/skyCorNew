@@ -10,19 +10,19 @@
                 <el-button type="primary">上传Excel文件</el-button>
             </el-upload>
         </div>
-        <el-progress :percentage="progress" :text-inside="true" stroke-width="20" />
+        <!-- <el-progress :percentage="progress" :text-inside="true" stroke-width="20" /> -->
 
         <div v-if="mode == 'airport'">
 
             <el-table :data="addAirportDataForm" border style="width: 100%; margin-bottom: 10px;">
                 <el-table-column label="机场名">
                     <template #default="{ row }">
-                        <el-input v-model="row.chineseName" placeholder="机场名" maxlength="6" />
+                        <el-input v-model="row.chineseName" placeholder="机场名" />
                     </template>
                 </el-table-column>
                 <el-table-column label="英文全称">
                     <template #default="{ row }">
-                        <el-input v-model="row.englishName" placeholder="英文全称" maxlength="6" />
+                        <el-input v-model="row.englishName" placeholder="英文全称" />
                     </template>
                 </el-table-column>
                 <el-table-column label="IATACode">
@@ -310,7 +310,14 @@ watch(
         if (isEditing && editData) {
             // 深拷贝一份，避免直接修改父组件数据
             //   addFlightDataForm.value = editData
-            addFlightDataForm.value = Array.isArray(editData) ? editData : [editData]
+            if(mode.value=='flight'){
+                addFlightDataForm.value = Array.isArray(editData) ? editData : [editData]
+
+            }
+            if(mode.value=='airport'){
+                addAirportDataForm.value = Array.isArray(editData) ? editData : [editData]
+
+            }
 
         }
         console.log('编辑状态的数据', addFlightDataForm.value)
@@ -671,7 +678,7 @@ const syncDataToFather = (source) => {
         console.log('addAirportDataForm.value', addAirportDataForm.value)
 
         if (!addAirportDataForm.value.length) {
-            ElMessage.error('航班数据不可为空');
+            ElMessage.error('机场数据不可为空');
             return;
         }
         submitData = addAirportDataForm.value

@@ -114,8 +114,8 @@ function arrayToDaysObject(arr) {
     return obj;
 }
 const returnCityName = (airport, code) => {
-    console.log('airportCodeList', airportCodeList, 'info', airport, code)
-    console.log('结果', airportCodeList.value.find(item => item[code] == airport)?.englishName)
+    // console.log('airportCodeList', airportCodeList, 'info', airport, code)
+    // console.log('结果', airportCodeList.value.find(item => item[code] == airport)?.englishName)
     const match = airportCodeList.value.find(item => item[code] === airport);
 
     return match?.englishName ?? '无数据';
@@ -212,16 +212,6 @@ const generateDocNew = async () => {
     try {
         const templatePath = baseFileURL + props.curCountryInfo.scheduleTemplate.url;
 
-        // 1. 获取模板文件
-        const response = await fetch(templatePath);
-        const arrayBuffer = await response.arrayBuffer();
-        const zip = new PizZip(arrayBuffer);
-
-        // 2. 创建 Docxtemplater 实例
-        const doc = new Docxtemplater(zip, {
-            paragraphLoop: true,
-            linebreaks: true,
-        });
         const transformedFlightList = (curCountryApplyData.value.flightList || []).map(flight => {
             // console.log('111',formatDateToCountry(flight.startDate,props.curCountryData.overflyCountry,'blank'))
             const daysArray = normalizeDays(flight.days);
@@ -289,6 +279,7 @@ const generateDocNew = async () => {
         console.log('mergedFlights', mergedFlights)
         // 3. 替换字段的数据
         const data = {
+            // season:curS,
             country: props.curCountryInfo.country,
             date: formatDateToCountry(new Date().toISOString().split("T")[0], curCountryApplyData.value.overflyCountry, 'outside'),
             flightList: transformedFlightList || [],
@@ -298,6 +289,17 @@ const generateDocNew = async () => {
             mergedFlights
         };
         console.log('用来模板的data', data)
+
+        // 1. 获取模板文件
+        const response = await fetch(templatePath);
+        const arrayBuffer = await response.arrayBuffer();
+        const zip = new PizZip(arrayBuffer);
+
+        // 2. 创建 Docxtemplater 实例
+        const doc = new Docxtemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true,
+        });
         // 4. 渲染模板
         doc.setData(data);
 
@@ -318,11 +320,11 @@ const generateDocNew = async () => {
 
         docBlob.value = out;
         loading.value = false;
-        console.log('docBlobUrl.value 设置前', docBlobUrl.value)
+        // console.log('docBlobUrl.value 设置前', docBlobUrl.value)
 
         docBlobUrl.value = { type: 'docx', URL: URL.createObjectURL(out), source: 'local', }
         fileGenerated.value = true
-        console.log('docBlobUrl设置后', docBlobUrl.value)
+        // console.log('docBlobUrl设置后', docBlobUrl.value)
         previewVisible.value = true
 
     } catch (err) {

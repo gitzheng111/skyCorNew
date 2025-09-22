@@ -25,9 +25,11 @@
 
 </template>
 <script setup>
-import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList,addAirportCode,getAirportCode } from '../api.js';
+import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList,addAirportCode,getAirportCode,deleteAirportByIds } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw } from 'vue'
 import addDataTool  from  '../utils/addDataTool.vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+const airportCodeList = ref([])
 const selectedAirport = ref([])
 const showAddDataVisible =ref(false)
 const airportData =ref([])
@@ -36,6 +38,44 @@ const addAirport  = ()=>{
     // console.log('showAddDataVisible',showAddDataVisible)
 }
 const addAirportData=ref()
+const handleSelectionChange = (selection) => {
+    selectedAirport.value = selection
+    console.log('selectedAirport', selectedAirport)
+}
+const handleBatchDelete = async () => {
+    if (selectedAirport.value.length === 0) return
+
+    try {
+        await ElMessageBox.confirm(
+            `确定删除选中的 ${selectedAirport.value.length} 条机场数据？`,
+            '警告',
+            {
+                confirmButtonText: '删除',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }
+        )
+
+        // 假设每条航路有唯一的 id 字段
+        const idsToDelete = selectedAirport.value.map(item => item.id)
+        console.log('idsToDelete', idsToDelete)
+        // 调用后端接口进行删除
+        await deleteAirportByIds(idsToDelete)
+
+        selectedRoutes.value = []
+        const newAirportResponse = await getAirportCode();
+        if (newAirportResponse?.data) {
+            airportCodeList.value = newAirportResponse.data;
+            ElMessage.success('删除成功')
+        }
+
+    } catch (err) {
+
+        // 用户点击取消
+        console.log('批量删除取消',err)
+    }
+}
+
 const handleSubmitData = async (processedDataFromChild) => {
     console.log("父组件收到数据:", processedDataFromChild)
     addAirportData.value = processedDataFromChild
@@ -57,7 +97,7 @@ const onSubmit = async () => {
             const newAirportResponse = await getAirportCode();
             // console.log('flightResponse ====', flightResponse)
 
-            airportData.value = newAirportResponse.data
+            airportCodeList.value = newAirportResponse.data
         }).catch(err => {
             ElMessage.error('失败');
             console.error('添加失败:', err);
@@ -67,7 +107,7 @@ const onSubmit = async () => {
 
         const airportResponse = await addAirportCode(submitData).then(() => {
             ElMessage.success('添加成功');
-            airportData.value = newAirportResponse.data
+            airportCodeList.value = airportResponse.data
 
         }).catch(err => {
             console.error('添加失败:', err);
@@ -79,4 +119,19 @@ const onSubmit = async () => {
 
 
 }
+onMounted(async () => {
+    try {
+        const airportResponse = await getAirportCode();
+
+        airportCodeList.value = airportResponse.data;
+     
+        console.log('airportCodeList:', airportCodeList.value);
+
+
+    } catch (error) {
+        console.error('API error:', error);
+    }
+});
+
+
 </script>

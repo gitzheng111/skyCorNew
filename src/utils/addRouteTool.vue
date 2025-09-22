@@ -148,12 +148,72 @@
             </div>
         </div>
     </el-dialog>
+
+    <div>
+        <!-- 冲突对话框 -->
+        <el-dialog v-model="conflictDialogVisible" title="数据冲突处理" width="80%">
+            <div>
+                <el-alert type="warning" :closable="false" show-icon>
+                    检测到以下航路存在冲突，请选择保留或替换。
+                </el-alert>
+            </div>
+
+            <el-table :data="conflicts" border stripe style="margin-top: 12px;">
+                <el-table-column prop="country" label="国家" width="120" />
+                <el-table-column prop="sector" label="航路 Sector" width="160" />
+
+                <!-- 原数据 -->
+                <el-table-column label="原数据">
+                    <template #default="{ row }">
+                        <div>
+                            <div>起点: {{ row.oldData.departure }}</div>
+                            <div>终点: {{ row.oldData.arrival }}</div>
+                            <div>航路: {{ row.oldData.ATSroute }}</div>
+                        </div>
+                    </template>
+                </el-table-column>
+
+                <!-- 新数据 -->
+                <el-table-column label="新数据">
+                    <template #default="{ row }">
+                        <div>
+                            <div>起点: {{ row.newData.departure }}</div>
+                            <div>终点: {{ row.newData.arrival }}</div>
+                            <div>航路: {{ row.newData.ATSroute }}</div>
+                        </div>
+                    </template>
+                </el-table-column>
+
+                <!-- 操作 -->
+                <el-table-column label="操作" width="160">
+                    <template #default="{ row }">
+                        <el-radio-group v-model="row.action">
+                            <el-radio label="keep">保留原来</el-radio>
+                            <el-radio label="replace">替换为新</el-radio>
+                        </el-radio-group>
+                    </template>
+                </el-table-column>
+            </el-table>
+
+            <!-- 全局操作按钮 -->
+            <div style="margin-top: 12px; text-align: right;">
+                <el-button @click="applyAll('keep')">全部保留</el-button>
+                <el-button type="primary" @click="applyAll('replace')">全部替换</el-button>
+            </div>
+
+            <!-- 底部操作 -->
+            <template #footer>
+                <el-button @click="conflictDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="confirmConflict">确定提交</el-button>
+            </template>
+        </el-dialog>
+    </div>
 </template>
 
 <script setup>
 import * as XLSX from "xlsx";
 import { ref, watch, nextTick, toRaw } from 'vue'
-import {addOverflyData} from '../api.js'
+import { addOverflyData, getOverflyData, updateOverflyData } from '../api.js'
 import { ElMessage } from 'element-plus'
 import { parseOverflyData, mergeRouteWithOverflyData } from './fileParser.js'; // 引入解析文件的工具函数
 import SeasonSelect from '../utils/seasonSelect.vue'
@@ -174,7 +234,7 @@ const props = defineProps({
 const totalRoutes = ref([]);       // 总表
 const overflyData = ref({});       // 飞越国境表 (所有 sheet)
 const mergedRoutes = ref([]);      // 合并后的结果
-const curSeason =ref(null)
+const curSeason = ref(null)
 const emit = defineEmits(['update:showAddRoute', 'submit'])
 
 const showAddRoute = ref(props.showAddRoute)
@@ -240,7 +300,7 @@ const regexRules = {
 
     // ATS 路径串，例如：SARIN M166 KRG T523 ATBAN L994 TITUR
     // ATSroute: /^(?=.*\d)(?:[A-Z0-9]+\s+)*[A-Z0-9]+$/,
-    ATSroute: /^(?:[A-Z]{3,5}\s+[A-Z]\d{1,3}\s+)+[A-Z]{3,5}$/, 
+    ATSroute: /^(?:[A-Z]{2,5}\s+[A-Z]\d{1,3}\s+)+[A-Z]{2,5}$/,
     // 航路点（Entry/Exit），通常是大写 3~6 个字母
     waypoint: /^[A-Z]{3,6}$/,
 
@@ -280,7 +340,7 @@ function parseRowToRoute(row, curSeason) {
             route.sector = val;
         } else if (regexRules.routeCode.test(val)) {
             route.routeCode = val;
-        } 
+        }
         else if (regexRules.ATSroute.test(val)) {
             // 简单判断 ATSRoute：含有字母航路点/编号
             route.ATSroute = val;
@@ -289,7 +349,7 @@ function parseRowToRoute(row, curSeason) {
             // 如果 departure 为空，先塞 departure，否则塞 arrival
             if (!route.departure) route.departure = val;
             else if (!route.arrival) route.arrival = val;
-        }  else if (/[\u4e00-\u9fa5]/.test(val)) {
+        } else if (/[\u4e00-\u9fa5]/.test(val)) {
             // 中文 -> 飞越国家（可能有多个）
             route.overflyCountry = val.split(/\s+/).map(c => ({ country: c }));
         }
@@ -323,29 +383,29 @@ const handleExcelMain = (file) => {
     reader.readAsArrayBuffer(file.raw);
 };
 function normalize(input) {
-  if (!input) return "";
-  return input
-    .toString()
-    .trim()
-    // 全角数字转半角
-    .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
-    // 全角字母转半角
-    .replace(/[Ａ-Ｚ]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
-    // 异体N/F等替换成标准 ASCII
-    .replace(/[ⁿＮℕ𝑁𝗡𝐍𝙽𝑵𝒩𝘕𝓝]/g, "N")
-    .replace(/[Ｆ𝑭𝗙𝐅𝙁𝑓𝒇𝘧𝓯]/g, "F")
-    // 去掉零宽字符、控制符
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    // 合并奇怪空格
-    .replace(/\s+/g, " ");
+    if (!input) return "";
+    return input
+        .toString()
+        .trim()
+        // 全角数字转半角
+        .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
+        // 全角字母转半角
+        .replace(/[Ａ-Ｚ]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
+        // 异体N/F等替换成标准 ASCII
+        .replace(/[ⁿＮℕ𝑁𝗡𝐍𝙽𝑵𝒩𝘕𝓝]/g, "N")
+        .replace(/[Ｆ𝑭𝗙𝐅𝙁𝑓𝒇𝘧𝓯]/g, "F")
+        // 去掉零宽字符、控制符
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        // 合并奇怪空格
+        .replace(/\s+/g, " ");
 }
 console.log('测试', regexRules.speed.test(normalize("N0480"))); // true
 function debugChars(str) {
-  if (!str) return "EMPTY";
-  return Array.from(str).map(c => {
-    const code = c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0");
-    return `${c} (U+${code})`;
-  }).join(" | ");
+    if (!str) return "EMPTY";
+    return Array.from(str).map(c => {
+        const code = c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0");
+        return `${c} (U+${code})`;
+    }).join(" | ");
 }
 
 
@@ -385,7 +445,7 @@ function parseRowToModel(row, curSeason) {
         }
         else if (regexRules.ATSroute.test(val)) {
             route.ATSroute = val;
-        } 
+        }
         else if (regexRules.speed.test(normalize(val))) {
             // console.log('speedRow',val)
             route.speed = normalize(val); // N0480
@@ -402,7 +462,7 @@ function parseRowToModel(row, curSeason) {
             } else if (!route.exitPoint) {
                 route.exitPoint = val;    // 第二个 → 出境点
             }
-        }  else if (regexRules.etdTime.test(val)) {
+        } else if (regexRules.etdTime.test(val)) {
             // ETD+0520 -> 0520
             const t = val.match(/\d{4}/)[0];
             if (!route.entryTime) route.entryTime = t;
@@ -500,20 +560,111 @@ function mergeRouteWithOverfly(sheetDataMap, mainSheetName = "2025年夏秋季CF
         };
     });
 }
-const submitOverflyData = async() => {
+
+function compareData(curOverflyData, newData, curSeason) {
+    console.log('curOverflyData',curOverflyData,'newData',newData)
+    const conflicts = []
+    const nonConflicts = []
+
+    const oldMap = new Map()
+    curOverflyData.forEach(d => {
+        if (d.season === curSeason) {
+            oldMap.set(d.sector, d)
+        }
+    })
+
+    Object.entries(newData).forEach(d => {
+        const old = oldMap.get(d.sector)
+        if (old) {
+            conflicts.push({
+                country: d.country,
+                sector: d.sector,
+                oldData: old,
+                newData: d
+            })
+        } else {
+            nonConflicts.push(d)
+        }
+    })
+    console.log('conflicts', conflicts, 'nonConflicts', nonConflicts)
+    return { conflicts, nonConflicts }
+}
+
+
+const submitOverflyData = async () => {
     // const formData = new FormData();
     // formData.append('overflyData', overflyDataToUpload.value);
     const payload = {
         curseason: curSeason.value,   // 当前季节
         data: overflyData.value       // 各国家的航路数据
     };
-    console.log('overflyData.value ',overflyData.value )
+    console.log('提交的数据 ', payload)
+    const curOverflyData = await getOverflyData()
+    console.log('curOverflyData', curOverflyData.data)
 
-    const addResponse= await addOverflyData(payload )
-    console.log('addResponse',addResponse)
+    if (curOverflyData.data) {
+        const { conflicts, nonConflicts } = compareData(curOverflyData.data, payload.data, curSeason.value)
+        console.log('conflicts', conflicts)
+
+        if (conflicts.length > 0) {
+            console.log('冲突展示')
+
+            showConflictDialog(conflicts, nonConflicts)
+        }else {
+        console.log('新增')
+        // 没有冲突直接提交
+        const addResponse = await addOverflyData(payload)
+        console.log('addResponse', addResponse)
+    }
+        // 弹出对话框，展示冲突项
+
+    } else {
+        console.log('新增')
+        // 没有冲突直接提交
+        const addResponse = await addOverflyData(payload)
+        console.log('addResponse', addResponse)
+    }
+}
+const conflicts = ref([]) // [{ country, sector, oldData, newData, action }]
+const nonConflicts = ref([])
+const conflictDialogVisible = ref(false)
+
+const showConflictDialog = (conflictList, nonConflictList) => {
+    conflicts.value = conflictList.map(item => ({
+        ...item,
+        action: 'keep' // 默认保留原数据
+    }))
+    nonConflicts.value = nonConflictList
+    conflictDialogVisible.value = true
+}
+// 批量设置
+const applyAll = (action) => {
+    conflicts.value.forEach(item => {
+        item.action = action
+    })
+}
+const confirmConflict = async () => {
+    const toUpdate = conflicts.value
+        .filter(item => item.action === 'replace')
+        .map(item => item.newData)
+
+    const toAdd = nonConflicts.value
+
+    console.log('非冲突数据 → 新增:', toAdd)
+    console.log('冲突替换 → 更新:', toUpdate)
+    console.log('冲突保留 → 不处理')
+
+    if (toAdd.length > 0) {
+        await addOverflyData({ data: toAdd })
+    }
+    if (toUpdate.length > 0) {
+        await updateOverflyData({ data: toUpdate })
+    }
+
+    conflictDialogVisible.value = false
 }
 // 提交
-const onSubmit = async() => {
+const onSubmit = async () => {
     const submitData = mergedRoutes.value.map(row => {
         return {
             ...toRaw(row),

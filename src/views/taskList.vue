@@ -97,8 +97,13 @@
             </div>
 
         </el-dialog>
-        <el-dialog v-model="showTask" width="1400"
-            :title="viewData?.taskName ? viewData?.taskName : viewData?.createTime + '创建的任务'">
+        <el-dialog v-model="showTask" width="1400"  >
+            <template #title>
+                <span>
+                    {{ viewData?.taskName ? viewData?.taskName : viewData?.createTime + '创建的任务' }}
+                    <el-tag type="success" size="small" class="ml-2">{{ viewData.data.length }}个国家</el-tag>
+                </span>
+            </template>
             <template v-if="loading">
                 <div style="text-align:center; padding: 100px 0;">
                     <el-spinner type="circle" />
@@ -225,7 +230,8 @@
                             <el-button v-if="curCountry == '越南'" type="success"
                                 @click="applyExtractRoutes">提取成该国申请格式航路</el-button>
 
-                            <overflyDataView mode="temp" :overflyDataFromFather="item.overflyDetails" @updateFinish="refreshOverflyData"/>
+                            <overflyDataView mode="temp" :overflyDataFromFather="item.overflyDetails"
+                                @updateFinish="refreshOverflyData" />
                         </div>
                         <el-divider>飞越申请</el-divider>
                         <div>
@@ -251,7 +257,7 @@
                                                         v-bind="getTimelineNode(!!(viewData?.applyData?.[curCountryData?.overflyCountry]?.uploadTime), currentStep === 'upload')"
                                                         :class="getTimelineNode(!!(viewData?.applyData?.[curCountryData?.overflyCountry]?.uploadTime), currentStep === 'upload').class"
                                                         :timestamp="viewData?.applyData?.[curCountryData?.overflyCountry]?.uploadTime">
-                                                        
+
                                                         申请件制作阶段
                                                         <el-tag effect="dark"
                                                             :type="viewData?.applyData?.[curCountryData.overflyCountry]?.uploadTime ? 'success' : 'danger'">
@@ -275,7 +281,7 @@
 
                                                         <el-button @click="reMakeApply">{{ needMakeApplyDoc ? '关闭制作区' :
                                                             '展开制作区'
-                                                            }}</el-button>
+                                                        }}</el-button>
 
                                                         <div v-if="needMakeApplyDoc" class="applyDocWindow"
                                                             style="display: flex;flex-direction: row;">
@@ -316,7 +322,7 @@
                                                         v-bind="getTimelineNode(!!(viewData?.applyData?.[curCountryData?.overflyCountry]?.checkTime), currentStep === 'check')"
                                                         :class="getTimelineNode(!!(viewData?.applyData?.[curCountryData?.overflyCountry]?.checkTime), currentStep === 'check').class"
                                                         :timestamp="viewData?.applyData?.[curCountryData?.overflyCountry]?.checkTime">
-                                                        
+
                                                         申请件核对阶段
                                                         <div>
                                                             <el-tag effect="dark"
@@ -648,7 +654,7 @@ const viewTask = async (key) => {
     console.log('当前国家申请数据curCountryData', curCountryData.value)
 
     curCountry.value = curCountryData.value.overflyCountry || null
-    console.log('curCountry.value',curCountry.value)
+    console.log('curCountry.value', curCountry.value)
     if (curCountry.value && countryList.value) {
         curCountryInfo.value = countryList.value.find(item => item.country == curCountry.value)
         console.log('当前国家信息curCountry', curCountryInfo.value)
@@ -661,13 +667,13 @@ const viewTask = async (key) => {
     taskLoading.value = false
 }
 const refreshOverflyData = async (newData) => {
-    console.log('curCountryData',curCountryData.value)
+    console.log('curCountryData', curCountryData.value)
 
-    console.log('临时更新的data',newData)
+    console.log('临时更新的data', newData)
 
     // console.log('当前的viewData',viewData)
     curCountryData.value.overflyDetails = newData
-    console.log('变化后的curCountryData',curCountryData.value)
+    console.log('变化后的curCountryData', curCountryData.value)
 
 }
 function dedupeOverflyDetails(overflyDetails) {
