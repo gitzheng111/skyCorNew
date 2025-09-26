@@ -161,7 +161,7 @@ export const formatDateToCountry = (inputDate, country, place) => {
         }if(place==='outside'){
             return `${day}/${month}/${shortYear}`;
         }
-    } else if (country === '马来西亚' || country === '老挝'|| country === '菲律宾'||country === '俄罗斯') {
+    } else if (country === '马来西亚' || country === '老挝'|| country === '菲律宾'||country === '俄罗斯'||country === '印度尼西亚') {
         if(place==='blank'){
           // 马来西亚/老挝格式：30Sep25
 
@@ -171,12 +171,14 @@ export const formatDateToCountry = (inputDate, country, place) => {
 
             return `${day}${monthNames[monthInt].toUpperCase()}${shortYear}`;
         }
-    } else if (country === '柬埔寨' ) {
-      
+    } else if (country === '柬埔寨' || country === '波兰'|| country === '荷兰'|| country === '缅甸'|| country === '阿曼'|| country === '挪威') {
+                // 250930
+
         if(place==='blank'){
             return `${shortYear}${month}${day}`;
         }  
-    } else if (country === '哈萨克斯坦' ) {
+    } else if (country === '哈萨克斯坦'||country === '白俄罗斯'||country === '乌兹别克斯坦'||country === '土库曼斯坦'||country === '吉尔吉斯斯坦') {
+        // 20250922
         if(place==='blank'){
             return `${year}${month}${day}`;
         }  

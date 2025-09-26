@@ -62,13 +62,13 @@ const curCountryApplyData = ref()
 watch(() => props.curCountryData, (newValue, oldValue) => {
     // 当 curCountryData 发生变化时，更新 curCountryApplyData
     if (newValue) {
-        curCountryApplyData.value = newValue|| {};  // 假设 applyData 是需要的部分
-        console.log('curCountryApplyData.value',curCountryApplyData.value)
+        curCountryApplyData.value = newValue || {};  // 假设 applyData 是需要的部分
+        // console.log('curCountryApplyData.value',curCountryApplyData.value)
         // console.log('curCountryInfo.value',props.curCountryInfo)
         // console.log('curTaskData.value',props.curTaskData)
 
     }
-}, { immediate: true });  
+}, { immediate: true });
 // watch(
 //     [() => props.curCountryInfo, () => props.curTaskData], // 监听 curCountryInfo 和 curTaskData
 //     (newValues, oldValues) => {
@@ -94,7 +94,7 @@ watch(() => props.curCountryData, (newValue, oldValue) => {
 // );
 const handleClose = () => {
     emit('update:show', false)
-    emit('closed')
+    emit('close')
 }
 
 const docBlobUrl = ref()
@@ -160,7 +160,7 @@ function calcActualTime(departureTime, offsetTime) {
         .toString()
         .padStart(2, "0");
     const m = (totalMinutes % 60).toString().padStart(2, "0");
-    
+
     const depMinutes = depH * 60 + depM;
     // const arrMinutes = arrH * 60 + arrM;
 
@@ -224,20 +224,31 @@ const generateDocNew = async () => {
                 daysArray,
                 daysObject: arrayToDaysObject(daysArray),
                 departureTime: formatTimeWithoutColon(beijingToUTC(flight.departureTime)),
-                arrivalTime: formatTimeWithoutColon(beijingToUTC(flight.arrivalTime)),
-                showArrivalTime: getShowArrivalTime(flight.departureTime, flight.arrivalTime),//实际显示的到达时间，会显示+1
+                // arrivalTime: formatTimeWithoutColon(beijingToUTC(flight.arrivalTime)),
+                arrivalTime: getShowArrivalTime(flight.departureTime, flight.arrivalTime),//实际显示的到达时间，会显示+1
                 flyTime: formatTimeWithoutColon(calcFlightDuration(flight.departureTime, flight.arrivalTime))
             };
         });
         console.log('transformedFlightList', transformedFlightList)
-        const sortedRouteList = [];
+        const uniqueSectors = [];
+        const seen = new Set();
+
         transformedFlightList.forEach(flight => {
             const sector = `${flight.departure}-${flight.arrival}`;
+            if (!seen.has(sector)) {
+                seen.add(sector);
+                uniqueSectors.push(sector);
+            }
+        });
+        const sortedRouteList = [];
+        uniqueSectors.forEach(sector => {
             const matched = (curCountryApplyData.value.overflyDetails || [])
                 .filter(detail => detail.sector === sector);
             sortedRouteList.push(...matched);
         });
-        console.log('sortedRouteList', sortedRouteList)
+        // console.log('uniqueSectors', uniqueSectors)
+
+        // console.log('sortedRouteList', sortedRouteList)
         const mergedFlights = transformedFlightList.map((flight, index) => {
             const sector = `${flight.departure}-${flight.arrival}`;
             const matchedRoute = (curCountryApplyData.value.overflyDetails || [])
@@ -270,10 +281,7 @@ const generateDocNew = async () => {
 
                 },
                 date: formatDateToCountry(new Date().toISOString().split("T")[0], curCountryApplyData.value.overflyCountry, 'outside'),
-                // entryPoint: matchedRoute?.entryPoint || "无数据",
-                // entryTime: matchedRoute?.entryTime || "无数据",
-                // exitPoint: matchedRoute?.exitPoint || "无数据",
-                // exitTime: matchedRoute?.exitTime || "无数据",
+
             };
         });
         console.log('mergedFlights', mergedFlights)
@@ -485,15 +493,22 @@ const downloadDoc = async () => {
         console.error('上传接口异常:', err);
     }
 }
-
-watch(() => props.show, async (val) => {
-    visible.value = val
-    console.log('开始生成', visible)
+watch(() => props.show, (val) => {
     if (val) {
-        await nextTick()
-        // await generateDoc()
-        await generateDocNew()
-
+        visible.value = true
+        nextTick(() => generateDocNew())
+    } else {
+        visible.value = false
     }
 })
+// watch(() => props.show, async (val, oldVal) => {
+//     visible.value = val
+//     // console.log('开始生成', visible)
+//     if (val) {
+//         await nextTick()
+//         // await generateDoc()
+//         await generateDocNew()
+
+//     }
+// })
 </script>

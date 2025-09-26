@@ -12,6 +12,7 @@
 
             <!-- 手动新增 -->
             <div v-if="mode == 'manAdd'">
+
                 <div v-for="(form, index) in addRouteForms" :key="index"
                     style="border-bottom: 1px solid #eee; padding: 10px 0">
                     <el-form ref="formRef" :model="form" label-width="100px">
@@ -35,7 +36,7 @@
                         </el-form-item>
 
                         <!-- 飞越国家 -->
-                        <el-form-item label="飞越国家">
+                        <!-- <el-form-item label="飞越国家">
                             <el-select v-model="form.overflyCountryNames" multiple filterable remote
                                 :reserve-keyword="false" placeholder="飞越国家" :remote-method="countrySearch"
                                 :loading="loadingCountries" @change="val => onCountryChange(val, index)"
@@ -50,9 +51,9 @@
                                     <template #default="{ row }">
                                         <el-input v-model="row.data[field]" size="small" />
                                     </template>
-                                </el-table-column>
-                            </el-table>
-                        </el-form-item>
+</el-table-column>
+</el-table>
+</el-form-item> -->
                     </el-form>
                 </div>
                 <div v-if="!isEditing" style="margin: 10px 0">
@@ -75,7 +76,12 @@
                 <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelOverfly">
                     <el-button type="primary">上传各国飞越数据</el-button>
                 </el-upload>
+                <el-button @click="submitAllRoute">提交总航路</el-button>
+
                 <el-button @click="submitOverflyData">提交飞越</el-button>
+                <el-button type="warning" @click="deleteTemRouteData">清除航路数据</el-button>
+                <el-button type="warning" @click="deleteTemOverflyData">清除飞越数据</el-button>
+
                 <el-row>
                     <!-- 左边：总表 -->
                     <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
@@ -84,8 +90,21 @@
                             <el-table-column prop="sector" label="航段" />
                             <el-table-column prop="routeCode" label="航线代码" />
                             <el-table-column prop="departure" label="起飞机场" />
+                            
                             <el-table-column prop="arrival" label="目的机场" />
-                            <el-table-column prop="overflyCountry" label="飞越国家" />
+                            <el-table-column prop="ATSroute" label="航路" />
+
+                            <el-table-column label="飞越国家">
+
+                                <template #default="{ row }">
+                                    <span>
+                                        <!-- overflyCountry 可能是数组 -->
+                                        {{Array.isArray(row.overflyCountry)
+                                            ? row.overflyCountry.map(c => c.country).join(',')
+                                        : '' }}
+                                    </span>
+                                </template>
+                            </el-table-column>
                         </el-table>
                     </el-col>
 
@@ -213,11 +232,13 @@
 <script setup>
 import * as XLSX from "xlsx";
 import { ref, watch, nextTick, toRaw } from 'vue'
+import AirportAutocomplete from '../utils/airportAutocomplete.vue'
 import { addOverflyData, getOverflyData, updateOverflyData } from '../api.js'
 import { ElMessage } from 'element-plus'
 import { parseOverflyData, mergeRouteWithOverflyData } from './fileParser.js'; // 引入解析文件的工具函数
 import SeasonSelect from '../utils/seasonSelect.vue'
 
+const isEditing = ref(false)
 const props = defineProps({
     showAddRoute: Boolean,
     isEditing: Boolean,
@@ -229,16 +250,20 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
-    uploading: Boolean
+    uploading: Boolean,
+    editData: Array,
+    filteredData:Array
 })
 const totalRoutes = ref([]);       // 总表
 const overflyData = ref({});       // 飞越国境表 (所有 sheet)
 const mergedRoutes = ref([]);      // 合并后的结果
 const curSeason = ref(null)
 const emit = defineEmits(['update:showAddRoute', 'submit'])
-
+const filteredData = ref([])
 const showAddRoute = ref(props.showAddRoute)
 watch(() => props.showAddRoute, val => showAddRoute.value = val)
+watch(() => props.filteredData, val => filteredData.value = val)
+
 watch(showAddRoute, val => emit('update:showAddRoute', val))
 const emptyRoute = () => ({
     season: '',
@@ -252,27 +277,38 @@ const emptyRoute = () => ({
 })
 const addRouteForms = ref([])
 
-// 编辑模式：根据 selectedRoutes 初始化
-watch(() => props.selectedRoutes, (val) => {
-    if (props.isEditing && val.length) {
-        addRouteForms.value = val.map(route => ({
-            ...route,
-            overflyCountry: route.overflyCountry.map(item => {
-                const { country, ...rest } = item
-                return { country, data: rest }
-            }),
-            autoRoutePrefix: '',
-            overflyCountryNames: route.overflyCountry.map(i => i.country)
-        }))
-    }
-}, { immediate: true })
 
-// 新增模式：初始化一个空表单
-watch(() => props.isEditing, (val) => {
-    if (!val) {
-        addRouteForms.value = [emptyRoute()]
-    }
-}, { immediate: true })
+const mapEditData = (data) => {
+    const arrayData = Array.isArray(data) ? data : [data];
+    return arrayData.map(f => ({
+        route_id: f.route_id || '',
+        season: f.season || '',
+        departure: f.departure || '',
+        arrival: f.arrival || '',
+        sector: f.sector || '',
+        ATSroute: f.ATSroute || '',
+        routeCode: f.routeCode || '',
+        overflyCountry: f.overflyCountry || [],
+    }))
+}
+watch(
+    () => [props.isEditing, props.editData],
+    (val) => {
+
+        console.log('props.editData', props.editData, ' props.isEditing', props.isEditing)
+        if (val && props.editData) {
+            isEditing.value = props.isEditing
+            mode.value = 'manAdd'
+            addRouteForms.value = mapEditData(props.editData)
+            console.log('mode', mode.value)
+
+            console.log('addFlightForms', addRouteForms.value)
+        } else {
+            addRouteForms.value = []
+        }
+    },
+    { immediate: true }
+)
 const getColumns = (rules) => {
     if (!Array.isArray(rules) || !rules.length) return [];
     return [...new Set(rules.flatMap(rule => Object.keys(rule)))];
@@ -300,9 +336,11 @@ const regexRules = {
 
     // ATS 路径串，例如：SARIN M166 KRG T523 ATBAN L994 TITUR
     // ATSroute: /^(?=.*\d)(?:[A-Z0-9]+\s+)*[A-Z0-9]+$/,
-    ATSroute: /^(?:[A-Z]{2,5}\s+[A-Z]\d{1,3}\s+)+[A-Z]{2,5}$/,
+    // ATSroute: /^(?:(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])\s+)+(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/,
+   ATSroute : /\b([A-Z]{3,5}|[A-Z][0-9]{2,3}|DCT|\d{2,3}[NS]\d{3}[EW])\b/g,
+
     // 航路点（Entry/Exit），通常是大写 3~6 个字母
-    waypoint: /^[A-Z]{3,6}$/,
+    waypoint: /^(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/,
 
     // 飞行速度，例如：N0480（表示 480 节）
     speed: /^N\d{4}$/,
@@ -560,36 +598,115 @@ function mergeRouteWithOverfly(sheetDataMap, mainSheetName = "2025年夏秋季CF
         };
     });
 }
+const submitAllRoute =()=>{
+    const { conflicts, nonConflicts, sameList } = compareRouteData(filteredData.value, totalRoutes.value, curSeason.value)
+    console.log('conflicts',conflicts)
+    console.log('nonConflicts',nonConflicts)
+    console.log('sameList',sameList)
 
-function compareData(curOverflyData, newData, curSeason) {
-    console.log('curOverflyData',curOverflyData,'newData',newData)
-    const conflicts = []
-    const nonConflicts = []
 
-    const oldMap = new Map()
-    curOverflyData.forEach(d => {
-        if (d.season === curSeason) {
-            oldMap.set(d.sector, d)
-        }
-    })
+}
+const compareRouteData = (newRoutes, oldRoutes, curSeason) => {
+  const conflicts = []
+  const nonConflicts = [] // 新增
+  const sameList = []
 
-    Object.entries(newData).forEach(d => {
-        const old = oldMap.get(d.sector)
-        if (old) {
-            conflicts.push({
-                country: d.country,
-                sector: d.sector,
-                oldData: old,
-                newData: d
-            })
-        } else {
-            nonConflicts.push(d)
-        }
-    })
-    console.log('conflicts', conflicts, 'nonConflicts', nonConflicts)
-    return { conflicts, nonConflicts }
+  // 根据 sector + routeCode（如果有）来做唯一标识
+  const getKey = (route) => `${route.sector}_${route.routeCode || ''}`
+
+  const oldMap = new Map()
+  oldRoutes.forEach(r => oldMap.set(getKey(r), r))
+
+  newRoutes.forEach(newRoute => {
+    const key = getKey(newRoute)
+    const oldRoute = oldMap.get(key)
+
+    if (!oldRoute) {
+      // 旧数据里没找到 → 新增
+      nonConflicts.push(newRoute)
+    } else {
+      // 找到了 → 比较关键字段
+      const fieldsToCompare = [
+        'ATSroute', 'entryPoint', 'exitPoint', 'EET', 'flightLevel', 'speed'
+      ]
+      const hasConflict = fieldsToCompare.some(
+        field => (newRoute[field] || '') !== (oldRoute[field] || '')
+      )
+
+      if (hasConflict) {
+        conflicts.push({
+          sector: newRoute.sector,
+          routeCode: newRoute.routeCode,
+          oldRoute,
+          newRoute
+        })
+      } else {
+        sameList.push(newRoute)
+      }
+    }
+  })
+
+  return { conflicts, nonConflicts, sameList }
 }
 
+
+function compareData(curOverflyData, newData, curSeason) {
+    console.log('curOverflyData', curOverflyData, 'newData', newData)
+    const conflicts = []
+    const sameList = []
+
+    const nonConflicts = []
+    Object.entries(newData).forEach(([country, routes]) => {
+        // 找当前国家历史数据
+        const oldCountry = curOverflyData.find(c => c.country === country)
+        const oldRoutes =
+            oldCountry?.data?.find(d => d.season === curSeason)?.data || []
+
+        routes.forEach(newRoute => {
+            const conflict = oldRoutes.find(
+                old =>
+                    old.sector === newRoute.sector &&
+                    old.ATSroute != newRoute.ATSroute &&
+                    JSON.stringify(old.routeCode) === JSON.stringify(newRoute.routeCode)
+            )
+            const same = oldRoutes.find(
+                old =>
+                    old.sector === newRoute.sector &&
+                    old.ATSroute === newRoute.ATSroute &&
+                    JSON.stringify(old.routeCode) === JSON.stringify(newRoute.routeCode)
+            )
+
+
+            if (conflict) {
+                conflicts.push({
+                    country,
+                    sector: newRoute.sector,
+                    oldData: conflict,
+                    newData: newRoute
+                })
+            } if (same) {
+                sameList.push({
+                    country,
+                    sector: newRoute.sector,
+                    oldData: conflict,
+                    newData: newRoute
+                })
+            } else {
+                nonConflicts.push({ country, ...newRoute })
+            }
+        })
+    })
+
+    console.log('conflicts', conflicts, 'nonConflicts', nonConflicts)
+    return { conflicts, nonConflicts, sameList }
+}
+
+const deleteTemRouteData = ()=>{
+    totalRoutes.value = []
+}
+const deleteTemOverflyData = ()=>{
+    overflyData.value = []
+}
 
 const submitOverflyData = async () => {
     // const formData = new FormData();
@@ -603,19 +720,29 @@ const submitOverflyData = async () => {
     console.log('curOverflyData', curOverflyData.data)
 
     if (curOverflyData.data) {
-        const { conflicts, nonConflicts } = compareData(curOverflyData.data, payload.data, curSeason.value)
+        const { conflicts, nonConflicts, sameList } = compareData(curOverflyData.data, payload.data, curSeason.value)
         console.log('conflicts', conflicts)
+        console.log('nonConflicts', nonConflicts)
+        console.log('sameList', sameList)
 
         if (conflicts.length > 0) {
             console.log('冲突展示')
+            ElMessage.warn('与现存数据有冲突，请做选择');
 
             showConflictDialog(conflicts, nonConflicts)
-        }else {
-        console.log('新增')
-        // 没有冲突直接提交
-        const addResponse = await addOverflyData(payload)
-        console.log('addResponse', addResponse)
-    }
+        }
+        if (conflicts.length == 0 && nonConflicts.length == 0 && sameList.length > 0) {
+            ElMessage.info('与现存数据完全一致，无需补充');
+
+        }
+        if (conflicts.length == 0 && nonConflicts.length > 0 && sameList.length == 0) {
+            ElMessage.success('数据已检查，无冲突，直接同步至服务器');
+
+            console.log('新增')
+            // 没有冲突直接提交
+            const addResponse = await addOverflyData(payload)
+            console.log('addResponse', addResponse)
+        }
         // 弹出对话框，展示冲突项
 
     } else {

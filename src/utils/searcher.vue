@@ -1,20 +1,28 @@
 <template>
   <div class="searcher">
-    <el-form :inline="true" :model="searchForm">
+    <el-form :inline="true" :model="searchForm" @keyup.enter="handleSearch">
       <template v-for="field in searchFields" :key="field.prop">
         <el-form-item :label="field.label">
           <template v-if="field.prop === 'season'">
             <SeasonSelect v-model="searchForm[field.prop]" />
           </template>
+          <template  v-else-if="field.prop === 'departure' || field.prop === 'arrival'">
+            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
+
+          </template>
+          <template  v-else-if="field.prop === 'filterBefore'">
+            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable/>
+
+          </template>
           <template v-else>
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
+            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable  />
 
           </template>
         </el-form-item>
       </template>
 
       <el-form-item>
-        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button type="primary" @click="handleSearch" >搜索</el-button>
         <el-button @click="handleReset">重置</el-button>
       </el-form-item>
     </el-form>
@@ -38,7 +46,8 @@ const fieldMap = {
     { label: '航季', prop: 'season' },
     { label: '航班号', prop: 'flightNumber' },
     { label: '起飞机场', prop: 'departure' },
-    { label: '目的机场', prop: 'arrival' }
+    { label: '目的机场', prop: 'arrival' },
+    { label: '几点之前', prop: 'filterBefore' }
   ],
   route: [
     { label: '航季', prop: 'season' },
@@ -78,19 +87,56 @@ watch(
 )
 
 // 搜索逻辑
+// function handleSearch() {
+//   console.log('props', props)
+//   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
+//   const filtered = props.list.filter(item => {
+//     return searchFields.value.every(f => {
+//       const val = searchForm[f.prop]?.trim()
+//       if (!val) return true
+//       const itemVal = Array.isArray(item[f.prop])
+//         ? item[f.prop].map(c => c.country || c).join(',')
+//         : (item[f.prop] ?? '').toString()
+//       return itemVal.includes(val)
+//     })
+//   })
+//   console.log('filtered result:', filtered) // 打印搜索结果
+//   emit('update:result', filtered)
+// }
 function handleSearch() {
   console.log('props', props)
   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
+
   const filtered = props.list.filter(item => {
     return searchFields.value.every(f => {
       const val = searchForm[f.prop]?.trim()
       if (!val) return true
+
+      // 🔹 特殊处理 filterBefore
+      if (f.prop === 'filterBefore') {
+        // 只支持 HH:mm 或 HH 格式
+        let [h, m] = val.split(':')
+        if (!m) m = '00'
+        const limit = parseInt(h) * 60 + parseInt(m)
+
+        // 假设航班对象有 departureTime / arrivalTime
+        const timeStr = item.departureTime || item.arrivalTime
+        if (!timeStr) return false
+        const [ih, im] = timeStr.split(':')
+        const flightMinutes = parseInt(ih) * 60 + parseInt(im)
+
+        return flightMinutes <= limit
+      }
+
+      // 🔹 普通字符串匹配逻辑
       const itemVal = Array.isArray(item[f.prop])
         ? item[f.prop].map(c => c.country || c).join(',')
         : (item[f.prop] ?? '').toString()
+
       return itemVal.includes(val)
     })
   })
+
   console.log('filtered result:', filtered) // 打印搜索结果
   emit('update:result', filtered)
 }

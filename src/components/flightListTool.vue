@@ -32,7 +32,7 @@
                                             {{ route.routeCode }}
                                             <el-tag v-if="route.isValid == true" type="success" size="small"
                                                 effect="plain">可使用</el-tag>
-                                            <el-tag v-if="route.isValid == false & route.taskKeys?.length"
+                                            <el-tag v-if="route.isValid == false & route.taskKeys?.length>0"
                                                 type="warning" size="small" effect="plain"
                                                 @click="openTaskDialog(route.taskKeys)">正在申请</el-tag>
                                             <el-tag v-if="route.isValid == false & route.taskKeys?.length == 0"
@@ -278,7 +278,7 @@
                 </el-row>
 
 
-                <el-dialog v-model="showCreateTask" title="任务详情" width="70%">
+                <el-dialog v-model="showCreateTask" title="任务详情" width="70%" style="max-height: 500px;">
                     <el-scrollbar height="500px">
                         <div v-if="taskList.length > 0">
                             <el-card v-for="item in taskList" :key="item.overflyCountry" class="mb-4" shadow="hover"
@@ -333,7 +333,7 @@
 
     </div>
     <!-- 选择选中航班航路 ///////////////////////////////////////////////////////////////////////////////-->
-    <el-dialog v-model="showChooseTaskVisible" width="80%">
+    <el-dialog v-model="showChooseTaskVisible" width="80%" style="max-height: 600px;overflow-y: scroll;">
 
         <h2>选择的航班</h2>
         <div>
@@ -391,7 +391,8 @@
                     </div>
                     <div v-else class="text-gray-500 text-center">暂无任务数据</div>
                 </el-scrollbar>
-                <el-button type="primary" @click="submitTaskToServer">确定</el-button>
+                <el-button :disabled="!selectAll" type="primary" @click="submitTaskToServer">确定</el-button>
+
             </el-dialog>
 
         </div>
@@ -639,9 +640,12 @@ const createFilter = (queryString) => {
 const editFlightMode = ref(false)
 const editDataFromFather = ref()
 const editFlight = (data) => {
+    
+     editDataFromFather.value = []
     addFlightVisible.value = true
     editFlightMode.value = true
     editDataFromFather.value = data
+    console.log('editDataFromFather',editDataFromFather.value)
 }
 //处理子组件增加航班的数据
 const handleProcessData = async (processedDataFromChild) => {
@@ -668,6 +672,7 @@ const onSubmit = async () => {
         const flightResponse = await updateFlightsBatchs(finalData).then(async () => {
             ElMessage.success('更新成功 ');
             const newFlightResponse = await getFlights();
+            editDataFromFather.value = null
             // console.log('flightResponse ====', flightResponse)
 
             flightsData.value = newFlightResponse.data
@@ -778,7 +783,7 @@ const formatTimeFree = (timeStr, airport) => {
 }
 function generateSegmentedOptions(route, row) {
     let countryList = [];
-
+    console.log('生成标签的',route)
     if (typeof route.overflyCountry === 'string') {
         try {
             countryList = JSON.parse(route.overflyCountry);
@@ -791,13 +796,15 @@ function generateSegmentedOptions(route, row) {
     }
 
     return countryList.map(countryObj => {
-        const { country, needPermit, isPermit } = countryObj;
+        const { country, needPermit, isPermit ,applyStatus} = countryObj;
 
         let label = country;
         if (needPermit == false) {
             label = `${country}（无需申请）`;
-        } else if (needPermit == true && isPermit == false) {
+        } else if (needPermit == true && applyStatus.status == 'none') {
             label = `${country}（未申请）`;
+        } else if (needPermit == true && applyStatus.status == 'matched' ) {
+            label = `${country}（正在申请）`;
         } else if (needPermit == true && isPermit == true) {
             label = `${country}（已批复）`;
         }
@@ -850,7 +857,7 @@ const formatTime = (timeStr) => {
 const loadInitialDataNew = (parentData) => {
     // parent从watch传newval过来
     try {
-        console.log('执行数据初始化', parentData)
+        // console.log('执行数据初始化', parentData)
         parentFlights.value = parentData || [];
         console.log('parentFlights', parentFlights.value)
         const result = [];
@@ -968,20 +975,46 @@ const showApplyRequired = () => {
     hideRight.value = !hideRight.value;
 };
 const handleSelectAll = (checked) => {
-    if (checked) {
-        selectedFlights.value = applyRequired.value.map(f => f.flightNumber);
-        for (const flight of applyRequired.value) {
-            selectedRoutes.value[flight.flightNumber] = flight.route
-                .filter(r => !r.isValid)
-                .map(r => r.routeCode);
-        }
-    } else {
-        selectedFlights.value = [];
-        for (const flight of applyRequired.value) {
-            selectedRoutes.value[flight.flightNumber] = [];
-        }
+  if (checked) {
+    selectedFlights.value = taskNeedData.value.map(f => `${f.flightNumber}-${f.departure}-${f.arrival}`);
+
+    for (const flight of taskNeedData.value) {
+      const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
+      selectedRoutes.value[key] = flight.route
+        .filter(r => !r.isValid)
+        .map(r => r.routeCode);
     }
+    console.log('selectedRoutes',selectedRoutes)
+  } else {
+    selectedFlights.value = [];
+    for (const flight of taskNeedData.value) {
+      const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
+      selectedRoutes.value[key] = [];
+    }
+  }
 };
+// const handleSelectAll = (checked) => {
+//     // const flightKey = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
+
+//     if (checked) {
+
+//         selectedFlights.value = taskNeedData.value.map(f => `${f.flightNumber}-${f.departure}-${f.arrival}`);
+//         console.log('selectedFlights1',selectedFlights.value)
+
+//         for (const flight of taskNeedData.value) {
+//             selectedRoutes.value[`${f.flightNumber}-${f.departure}-${f.arrival}`] = flight.route
+//                 .filter(r => !r.isValid)
+//                 .map(r => r.routeCode);
+//         }
+//         console.log('selectedFlights',selectedFlights.value)
+
+//     } else {
+//         selectedFlights.value = [];
+//         for (const flight of  taskNeedData.value) {
+//             selectedRoutes.value[flightKey] = [];
+//         }
+//     }
+// };
 const handleFlightSelect = ({ flight, checked }) => {
     if (checked) {
         if (!selectedFlights.value.includes(flight.flightNumber)) selectedFlights.value.push(flight.flightNumber)
@@ -1009,52 +1042,13 @@ const updateSelectAllStatus = () => {
   selectAll.value = taskNeedData.value.length > 0 && taskNeedData.value.every(f => selectedFlights.value.includes(f.flightNumber))
 }
 
-// const handleFlightSelect = (flight) => {
-//     console.log('flight',flight)
-//     console.log('selectedFlights', selectedFlights)
-//     console.log('selectedRoutes', selectedRoutes)
-
-//     const selected = selectedFlights.value.includes(flight.flightNumber);
-//     console.log('selected',selected)
-
-//     if (!selected) {
-//         selectedRoutes.value[flight.flightNumber] = flight.route
-//             .filter(r => !r.isValid)
-//             .map(r => r.routeCode);
-//     } else {
-//         selectedRoutes.value[flight.flightNumber] = [];
-//     }
-
-//     // 更新全选状态
-//     updateSelectAllStatus();
-// };
 const updateFlightRoutes = (flight, routes) => {
     selectedRoutes.value[flight.flightNumber] = routes
 }
 
-// const handleRouteSelect = (flight) => {
-//     const routes = selectedRoutes.value[flight.flightNumber] || [];
-//     const totalInvalid = flight.route.filter(r => !r.isValid).length;
-
-//     if (routes.length === totalInvalid) {
-//         // 所有未申请航路都勾选，视为选中该航班
-//         if (!selectedFlights.value.includes(flight.flightNumber)) {
-//             selectedFlights.value.push(flight.flightNumber);
-//         }
-//     } else {
-//         selectedFlights.value = selectedFlights.value.filter(fn => fn !== flight.flightNumber);
-//     }
-
-//     updateSelectAllStatus();
-// };
-
-// const updateSelectAllStatus = () => {
-//     const allFlightNumbers = applyRequired.value.map(f => f.flightNumber);
-//     selectAll.value = allFlightNumbers.every(flight => selectedFlights.value.includes(flight));
-// };
 
 const taskNeedData = ref([])
-
+//输出选择列表
 const transferToTaskdata = (data) => {
     try {
         parentFlights.value = data || [];
@@ -1112,13 +1106,15 @@ const createTask = (data) => {
     selectedRouteIds.value = []
     const applyDataConfirm = data;
     console.log('applyDataConfirm', applyDataConfirm);
+    console.log('selectedRoutes', selectedRoutes);
 
     const countryMap = new Map(); // key: countryName -> { flightList: [], routeList: [], overflyDetails: [] }
 
     try {
         for (const flight of applyDataConfirm) {
             const flightNumber = flight.flightNumber;
-            const routeCodes = selectedRoutes.value[flightNumber] || [];
+            const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`
+            const routeCodes = selectedRoutes.value[key] || [];
             if (routeCodes.length === 0) continue;
 
             // 根据 routeCode 过滤选中的航路
@@ -1196,6 +1192,8 @@ const generateDefaultTaskName = () => {
 const curTaskNameInput = ref()
 const submitTaskToServer = async () => {
     if (!taskList.value.length) return
+    console.log('生成任务...')
+
     const now = dayjs().format('YYYY-MM-DD HH:mm:ss')
     const taskKey = sha256(JSON.stringify(taskList.value) + now).toString()
     const taskName = curTaskNameInput.value?.trim() || generateDefaultTaskName()
@@ -1241,7 +1239,7 @@ const openTaskDialog = async (taskKeys) => {
 watch(
     () => props.initialFlightData,
     (newVal) => {
-        console.log('props.initialFlightData 变化了:', newVal)
+        // console.log('props.initialFlightData 变化了:', newVal)
         loadInitialDataNew(newVal)
     },
     { immediate: true } // 初始化时也执行

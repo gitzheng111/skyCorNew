@@ -3,7 +3,7 @@
         <!-- 航班 header -->
         <template #header>
             <div class="flex items-center justify-between">
-                <el-checkbox :model-value="props.selectedFlights.includes(flight.flightNumber)" @change="onFlightSelect">
+                <el-checkbox :model-value="props.selectedFlights.includes(flightKey)" @change="onFlightSelect">
                     航班号：<strong>{{ flight.flightNumber }}</strong>
                 </el-checkbox>
                 <el-tag type="info" size="small">{{ flight.route.length }} 条未申请航路</el-tag>
@@ -11,7 +11,7 @@
         </template>
 
         <!-- 航路多选列表 -->
-        <el-checkbox-group :model-value="props.selectedRoutes[flight.flightNumber] || []" @change="onRouteSelect"
+        <el-checkbox-group :model-value="props.selectedRoutes[flightKey] || []" @change="onRouteSelect"
             class="grid grid-cols-2 gap-4">
             <el-card v-for="(item, idx) in flight.route" :key="idx" class="p-2" shadow="never"
                 :body-style="{ padding: '10px 16px' }">
@@ -49,6 +49,7 @@ const props = defineProps({
 })
 const flight = ref()
 const emits = defineEmits(['update:flight', 'update:routes'])
+const flightKey = `${props.data.flightNumber}-${props.data.departure}-${props.data.arrival}`;
 
 // 勾选航班
 const onFlightSelect = (checked) => {

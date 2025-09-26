@@ -4,7 +4,13 @@
     </el-button>
     <el-button v-if="isEditing" type="warning" class="mb-4" @click="cancelEidt">取消编辑
     </el-button>
-    <el-table :data="editableData" style="width: 100%">
+    <el-button v-if="isEditing" type="primary" :icon="Plus" @click="addRow">
+        <el-icon class="el-icon--right">
+            <Plus />
+        </el-icon>
+        添加一条
+    </el-button>
+    <el-table :data="editableData" style="width: 100%;max-height: 600px;overflow-y: scroll;">
         <el-table-column v-for="col in getValidColumns(editableData)" :key="col" :prop="col"
             :label="fieldLabelMap[col] || col">
             <template #default="{ row }">
@@ -16,8 +22,11 @@
         </el-table-column>
         <el-table-column label="操作" width="100">
             <template #default="{ $index }">
-                <el-button type="danger" icon="el-icon-delete" size="mini" v-if="isEditing"
-                    @click="deleteRow($index)" />
+                <el-button type="danger" size="mini" :disabled="!isEditing" @click="deleteRow($index)">
+                    <el-icon>
+                        <Delete />
+                    </el-icon>
+                </el-button>
             </template>
         </el-table-column>
     </el-table>
@@ -52,10 +61,78 @@ const emit = defineEmits(['updateFinish'])
 //     }
 //     return []
 // })
+const updateDate = ref([])
 const deleteRow = (index) => {
+    console.log('editableData',editableData)
+    // console.log('allData',props.allData)
+
     editableData.value.splice(index, 1)
+    // updateDate.value = { ...props.allData, data: editableData.value }
+    // updateDate.value.data = editableData.value
+    // console.log('编辑后allData',updateDate.value )
+
+}
+const emptyFormFromExisting = () => {
+  const firstItem = editableData.value[0] || {}
+  const newRow = {}
+  Object.keys(firstItem).forEach(key => {
+    // 这里可以根据类型初始化为空值
+    if (Array.isArray(firstItem[key])) {
+      newRow[key] = []
+    } else if (typeof firstItem[key] === 'number') {
+      newRow[key] = 0
+    } else {
+      newRow[key] = ''
+    }
+  })
+  return newRow
 }
 
+// 增加一行
+const addRow = () => {
+  editableData.value.push(emptyFormFromExisting())
+  console.log('editableData',editableData)
+
+}
+
+const handleBatchDelete = async () => {
+    if (selectedRoutes.value.length === 0) return
+
+    try {
+        await ElMessageBox.confirm(
+            `确定删除选中的 ${selectedRoutes.value.length} 条航路数据？`,
+            '警告',
+            {
+                confirmButtonText: '删除',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }
+        )
+
+        // 假设每条航路有唯一的 id 字段
+        const idsToDelete = selectedRoutes.value.map(item => item.route_id)
+        console.log('idsToDelete', idsToDelete)
+        // 调用后端接口进行删除
+        await deleteRoutesByIds(idsToDelete)
+
+        // 或者：本地前端删除（模拟）
+        // routesData.value = routesData.value.filter(
+        //   item => !idsToDelete.includes(item.id)
+        // )
+
+
+        selectedRoutes.value = []
+        const newRouteResponse = await getRoutes();
+        if (newRouteResponse?.data) {
+            routesData.value = newRouteResponse.data;
+            ElMessage.success('删除成功')
+        }
+
+    } catch (err) {
+        // 用户点击取消
+        console.log('批量删除取消')
+    }
+}
 // console.log('overflyDetails',overflyDetails)
 // const overflyDetails = ref(props.overflyDataFromFather)
 const editableData = ref([])
@@ -101,13 +178,13 @@ const fieldLabelMap = {
     altEntryPointer: '备用入境点',
     altExitPointer: '备用出境点',
     actualEntryTime: '实际入境时间',
-    actualExitTime: '实际出境时间'
-
-
+    actualExitTime: '实际出境时间',
+    departure: '起飞机场',
+    arrival: '落地机场',
 };
 // 可以编辑的列
 const isEditable = (col) => {
-    return ["ATSroute", "entryPoint", "entryTime", "exitPoint", "exitTime", "EET", "flightLevel", "speed", "altEntryPointer", "altExitPointer", "actualEntryTime", "actualExitTime"].includes(col)
+    return ["departure","arrival","sector","ATSroute", "entryPoint", "entryTime", "exitPoint", "exitTime", "EET", "flightLevel", "speed", "altEntryPointer", "altExitPointer", "actualEntryTime", "actualExitTime", "routeCode"].includes(col)
 }
 
 // 格式化单元格显示
@@ -147,10 +224,10 @@ const toggleEdit = async () => {
             }
         }
         if (props.mode == 'temp') {
-            console.log('编辑的editableData.value',editableData.value)
+            console.log('编辑的editableData.value', editableData.value)
 
             isEditing.value = false
-            emit('updateFinish',editableData.value)
+            emit('updateFinish', editableData.value)
 
         }
 

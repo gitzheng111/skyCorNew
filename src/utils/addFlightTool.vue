@@ -343,7 +343,7 @@ const mapEditData = (data) => {
 }
 const editMode = ref(false)
 watch(
-    () => props.isEditing,
+    () => [props.isEditing, props.editData],
     (val) => {
         console.log('props.editData', props.editData, ' props.isEditing', props.isEditing)
         if (val && props.editData) {
@@ -501,7 +501,7 @@ const onSubmitAirport = async () => {
     if (editAirportMode.value == true) {
         const airportResponse = await addAirportCode(submitData).then(async () => {
             ElMessage.success('更新成功 ');
-            disMatchList = []
+            let disMatchList = []
 
             // const newAirportResponse = await getAirportCode();
             console.log('disMatchList ====', disMatchList)

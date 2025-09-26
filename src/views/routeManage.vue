@@ -58,7 +58,7 @@
 
         </el-table>
         <add-route-tool v-model:showAddRoute="showAddRoute" :isEditing="isEditing" :selectedRoutes="selectedRoutes"
-            :countryData="countryData" @submit="handleSubmitRoutes" :uploading="uploading" />
+            :countryData="countryData" @submit="handleSubmitRoutes" :uploading="uploading" :editData="editData" :filteredData="filteredData"/>
        
 
 
@@ -305,6 +305,7 @@ const onCountryChange = (selectedCountries, formIndex) => {
     })
     allFieldsList.value[formIndex] = Array.from(allFieldSet)
 }
+const editData = ref()
 const editSelectedRoutes = () => {
     if (selectedRoutes.value.length === 0) {
         ElMessage.warning('请先选择至少一条航路进行编辑');
@@ -312,6 +313,7 @@ const editSelectedRoutes = () => {
     }
     isEditing.value = true;
     showAddRoute.value = true;
+    editData.value = selectedRoutes.value
 };
 const uploadProgress = ref(0)
 const showUploadDialog = ref(false)
@@ -369,43 +371,7 @@ const refreshRouteList = async () => {
         console.log('routesData', routesData)
     }
 }
-// const editSelectedRoutes = () => {
-//     if (selectedRoutes.value.length === 0) {
-//         ElMessage.warning('请先选择至少一条航路进行编辑');
-//         return;
-//     }
 
-//     isEditing.value = true;
-//     showAddRoute.value = true;
-//     console.log('selectedRoutes', selectedRoutes)
-//     // 复制选中的数据（深拷贝），赋值给 addRouteForms 用于编辑
-//     addRouteForms.value = selectedRoutes.value.map(route => ({
-//         ...route,
-//         overflyCountry: route.overflyCountry.map(item => {
-//             // 如果item本身就是平铺字段，包成data对象
-//             const { country, ...rest } = item;
-//             return {
-//                 country,
-//                 data: rest
-//             };
-//         }),
-//         autoRoutePrefix: ''
-//     }));
-//     addRouteForms.value.forEach(form => {
-//         form.overflyCountryNames = form.overflyCountry.map(item => item.country);
-//     });
-//     console.log('addRouteForms', addRouteForms)
-
-
-//     allFieldsList.value = addRouteForms.value.map(form => {
-//         const allFieldSet = new Set();
-//         form.overflyCountry.forEach(item => {
-//             Object.keys(item.data || {}).forEach(f => allFieldSet.add(f)); // 一定是遍历 data 里的字段
-//         });
-//         return Array.from(allFieldSet);
-//     });
-//     console.log('更新的allFieldsList', allFieldsList)
-// };
 
 const onSubmit = async () => {
     try {
@@ -456,6 +422,7 @@ const handleSelectionChange = (selection) => {
     selectedRoutes.value = selection
     console.log('selectedRoutes', selectedRoutes)
 }
+
 const handleBatchDelete = async () => {
     if (selectedRoutes.value.length === 0) return
 

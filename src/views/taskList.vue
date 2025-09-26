@@ -97,7 +97,7 @@
             </div>
 
         </el-dialog>
-        <el-dialog v-model="showTask" width="1400"  >
+        <el-dialog v-model="showTask" width="1400">
             <template #title>
                 <span>
                     {{ viewData?.taskName ? viewData?.taskName : viewData?.createTime + '创建的任务' }}
@@ -110,6 +110,7 @@
                     <p>加载中...</p>
                 </div>
             </template>
+            <!-- 制作任务详情的弹窗 -->
             <template v-else-if="viewData">
 
                 <el-tabs v-model="clickCountry" @tab-click="changeCountry">
@@ -135,7 +136,7 @@
                             </span>
                         </template>
                         <div>
-                            <el-divider>航班列表</el-divider>
+                            <el-divider>航班列表<el-tag>{{ item.flightList.length }}条</el-tag></el-divider>
                             <div>
                                 <el-button type="primary" @click="applyFullCycle" round :plain="!useFullCycleStatus">
                                     <el-icon>
@@ -157,7 +158,8 @@
 
                             </div>
 
-                            <el-table :data="item.flightList" size="small" border>
+                            <el-table :data="item.flightList" size="small" border
+                                style="max-height: 600px;overflow-y: scroll;">
                                 <el-table-column label="性质">
                                     <template #default="{ row }">
                                         {{ row.attribution }}
@@ -226,9 +228,13 @@
                             </el-table>
                         </div>
                         <div>
-                            <el-divider>航路列表</el-divider>
-                            <el-button v-if="curCountry == '越南'" type="success"
-                                @click="applyExtractRoutes">提取成该国申请格式航路</el-button>
+                            <el-divider>航路列表<el-tag>{{ item.overflyDetails.length }}条</el-tag></el-divider>
+                            <el-button v-if="curCountry == '越南'" type="success" @click="applyExtractRoutes">
+                                <el-icon>
+                                    <Pointer v-if="!extractStatus" />
+                                    <RefreshLeft v-else />
+                                </el-icon>
+                                提取成该国申请格式航路</el-button>
 
                             <overflyDataView mode="temp" :overflyDataFromFather="item.overflyDetails"
                                 @updateFinish="refreshOverflyData" />
@@ -381,7 +387,7 @@
 
                                     <applyDoc v-model:show="showCreateApplyDoc" :curCountryInfo="curCountryInfo"
                                         :curCountryData="curCountryData" :curTaskData="viewData" attribution="schedule"
-                                        @closed="refreshTaskList" />
+                                        @close="handleApplyClose" />
                                 </el-col>
 
                                 <!-- 批复文件 -->
@@ -457,6 +463,8 @@
                                 </el-col>
                             </el-row>
                         </div>
+                        <el-loading v-if="loadingTask" text="正在刷新任务列表..." />
+
                         <filePreview :file="currentFile" v-model:visible="previewVisible"
                             @extract-fields="onFieldsExtracted" />
 
@@ -667,13 +675,16 @@ const viewTask = async (key) => {
     taskLoading.value = false
 }
 const refreshOverflyData = async (newData) => {
-    console.log('curCountryData', curCountryData.value)
+    // console.log('curCountryData', curCountryData.value)
 
     console.log('临时更新的data', newData)
 
     // console.log('当前的viewData',viewData)
     curCountryData.value.overflyDetails = newData
+    const idx = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
+    viewData.value.data[idx] = curCountryData.value
     console.log('变化后的curCountryData', curCountryData.value)
+    console.log('变化后的viewData', viewData.value.data)
 
 }
 function dedupeOverflyDetails(overflyDetails) {
@@ -709,10 +720,32 @@ function dedupeViewData(viewData) {
 
     return { ...viewData, data: newData };
 }
+const extractStatus = ref(false)
+const extractRecord = ref(null)
 function applyExtractRoutes() {
-    viewData.value = extractRoutes(viewData.value);
+    // extractRecord.value = viewData.value
+    // viewData.value = extractRoutes(viewData.value);
     //重新赋值申请数据
-    console.log('点击提取航路的viewData', viewData)
+    if (extractStatus.value === false) {
+        console.log('提取航路')
+        extractRecord.value = viewData.value
+        viewData.value = extractRoutes(viewData.value);
+
+        extractStatus.value = true
+    } else {
+        console.log('还原航路')
+
+        viewData.value = extractRecord.value
+        extractRecord.value = null
+        extractStatus.value = false
+
+    }
+    //重新赋值申请数据
+    // console.log('点击全周期的viewData', viewData)
+
+    curCountryData.value = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
+    console.log('点击全周期的curCountryData', curCountryData)
+    // console.log('点击提取航路的viewData', viewData)
 
     // curCountryData.value = viewData.value.data[0]
 
@@ -721,9 +754,9 @@ function extractRoutes(viewData) {
     if (!viewData || !Array.isArray(viewData.data)) return viewData;
 
     // 正则表达式：匹配字母和2-3位数字
-    const routePattern = /\b[A-Z]{1,3}\d{2,3}\b/g;
-    console.log('需要提取的viewData', viewData)
-    console.log('curCountryInfo.country', curCountryInfo.value.country)
+    const routePattern = /\b[A-Z]{1}\d{1,3}\b/g;
+    // console.log('需要提取的viewData', viewData)
+    // console.log('curCountryInfo.country', curCountryInfo.value.country)
 
     const newData = viewData.data.map(item => {
         if (item.overflyCountry === curCountryInfo.value.country && Array.isArray(item.overflyDetails)) {
@@ -731,7 +764,7 @@ function extractRoutes(viewData) {
                 ...item,
                 overflyDetails: item.overflyDetails.map(route => {
                     // 提取符合格式的航路信息，并以逗号分隔
-                    const matchedRoutes = route.ATSroute.match(routePattern);
+                    const matchedRoutes = route.ATSroute ? route.ATSroute.match(routePattern) : null;
                     return {
                         ...route,
                         ATSroute: matchedRoutes ? matchedRoutes.join(',') : ''
@@ -750,7 +783,7 @@ function useFullCycle(viewData) {
     if (!viewData || !Array.isArray(viewData.data)) return viewData;
     // console.log('使用全周期viewData',viewData)
     const newData = viewData.data.map(item => {
-        if (Array.isArray(item.flightList)) {
+        if (item.overflyCountry === curCountryInfo.value.country && Array.isArray(item.flightList)) {
             return {
                 ...item,
                 flightList: item.flightList.map(flight => ({
@@ -770,7 +803,7 @@ function useAllAircraftTypes(viewData) {
     if (!viewData || !Array.isArray(viewData.data)) return viewData;
 
     const newData = viewData.data.map(item => {
-        if (Array.isArray(item.flightList)) {
+        if (item.overflyCountry === curCountryInfo.value.country && Array.isArray(item.flightList)) {
             return {
                 ...item,
                 flightList: item.flightList.map(flight => ({
@@ -785,6 +818,7 @@ function useAllAircraftTypes(viewData) {
 
     return { ...viewData, data: newData };
 }
+const allFullCycle = ref(false)
 const useFullCycleStatus = ref(false)
 const useFullCycleRecord = ref(null)
 function applyFullCycle() {
@@ -803,9 +837,11 @@ function applyFullCycle() {
 
     }
     //重新赋值申请数据
-    console.log('点击全周期的viewData', viewData)
+    // console.log('点击全周期的viewData', viewData)
 
-    curCountryData.value = viewData.value.data[0]
+    curCountryData.value = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
+    console.log('点击全周期的curCountryData', curCountryData)
+
 
 }
 const useAllAircraftTypesStatus = ref(false)
@@ -826,7 +862,8 @@ function applyAllAircraft() {
 
     }
     console.log('点击全机型的viewData', viewData)
-    curCountryData.value = viewData.value.data[0]
+    // curCountryData.value = viewData.value.data[0]
+    curCountryData.value = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
 
 }
 
@@ -834,7 +871,7 @@ function applyAllAircraft() {
 const handleClick = (tab, event) => {
     console.log(tab, event)
 }
-const clickCountry = ref()
+const clickCountry = ref('0')
 const changeCountry = (country) => {
     const index = clickCountry.value
     const selectedItem = viewData.value.data[index];
@@ -843,9 +880,33 @@ const changeCountry = (country) => {
     curCountry.value = selectedItem.overflyCountry
     curCountryData.value = selectedItem
     curCountryInfo.value = countryList.value.find(item => item.country == curCountry.value)
+    // allFullCycle.value = curCountryData.value.flightList.some()
+    useFullCycleStatus.value = false
+    useAllAircraftTypesStatus.value = false
+
     console.log('切换后的国家申请数据', curCountryData.value)
 }
-const createApplyDoc = (attribution, type) => {
+const createApplyDoc = async (attribution, type) => {
+    
+    if (allFullCycle.value == false && useFullCycleStatus.value == false) {
+        try {
+            await ElMessageBox.confirm(
+                `检测到未用全周期申请，是否使用全周期申请`,
+                '提示',
+                {
+                    confirmButtonText: '确定使用全周期申请',
+                    cancelButtonText: '保持计划周期',
+                    type: 'warning'
+                }
+            )
+            // 用户点了确定
+            applyFullCycle()
+            useFullCycleStatus.value = true
+        } catch (e) {
+            // 用户点了取消或关闭
+            console.log('保持原计划周期')
+        }
+    }
     showCreateApplyDoc.value = true
     console.log('showCreateApplyDoc', showCreateApplyDoc)
 
@@ -897,6 +958,15 @@ const handleUploadSuccess = (res, key) => {
         url: res.url
     }
 }
+const loadingTask = ref(false)
+const handleApplyClose = async () => {
+    loadingTask.value = true;
+    await refreshTaskList();
+
+    loadingTask.value = false;
+    ElMessage.success('任务已更新');
+};
+
 const refreshTaskList = async () => {
     const res = await getTaskList();
     if (res?.data) {
@@ -973,7 +1043,24 @@ const reMakeApply = () => {
     needMakeApplyDoc.value = !needMakeApplyDoc.value
 }
 const taskListLoaded = ref(false)
+watch(
+    () => curCountryData.value,
+    (newVal) => {
+        if (!newVal || !Array.isArray(newVal.flightList)) {
+            allFullCycle.value = false
+            return
+        }
+        console.log('newVal', newVal)
 
+        // 遍历 flightList 检查 days
+        allFullCycle.value = newVal.flightList.every(flight => {
+            const daysStr = Array.isArray(flight.days) ? flight.days.join("") : flight.days
+            return daysStr === "1234567"
+        })
+        console.log('allFullCycle', allFullCycle.value)
+    },
+    { deep: true, immediate: true }
+)
 onMounted(async () => {
     try {
         // const flightResponse = await getFlights();
