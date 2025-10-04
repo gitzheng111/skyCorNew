@@ -183,6 +183,85 @@
                 </template>
             </el-dialog>
         </div>
+        <div v-if="mode == 'aircraft'">
+            <el-table :data="addAircraftDataForm" border style="width: 100%; margin-bottom: 10px;">
+                <el-table-column label="机型">
+                    <template #default="{ row }">
+                        <el-input v-model="row.aircraftType" placeholder="机型" />
+                    </template>
+                </el-table-column>
+                <el-table-column label="重量类型" >
+                    <template #default="{ row }">
+                        <el-input v-model="row.weightType" placeholder="重量类型" />
+                    </template>
+                </el-table-column>
+                <el-table-column label="座位数" >
+                    <template #default="{ row }">
+                        <el-input v-model="row.seats" placeholder="重量类型" />
+                    </template>
+                </el-table-column>
+                <el-table-column label="MTOW">
+                    <template #default="{ row }">
+                        <el-input v-model="row.MTOW" placeholder="MTOW" />
+                    </template>
+                </el-table-column>
+
+                <el-table-column label="无线电设备能力">
+
+                    <template #default="{ row }">
+                        <el-input v-model="row.radio" placeholder="无线电设备能力" />
+                    </template>
+                </el-table-column>
+                <el-table-column label="国籍" >
+                    <template #default="{ row }">
+                        <el-input v-model="row.nationality" placeholder="国籍" />
+                    </template>
+                </el-table-column>
+                <el-table-column label="机号">
+                    <template #default="{ row }">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div v-for="(num, idx) in row.aircraftNumber.name" :key="idx"
+                                style="display:flex; gap:4px; align-items:center;">
+                                <el-input v-model="row.aircraftNumber.name[idx]" placeholder="机号" style="flex:1" />
+                                <el-button type="danger" link
+                                    @click="row.aircraftNumber.name.splice(idx, 1)">删除</el-button>
+                            </div>
+                            <el-button type="primary" link @click="row.aircraftNumber.name.push('')">+ 添加机号</el-button>
+                        </div>
+                    </template>
+                </el-table-column>
+                <!-- <el-table-column label="机号">
+                    <template #default="{ row }">
+                        <el-input v-model="row.aircraftNumber" placeholder="英文全称" />
+                    </template>
+                </el-table-column> -->
+                <el-table-column label="其他名">
+                    <template #default="{ row }">
+                        <el-input v-model="row.anotherName.caacName" placeholder="caac缩写" />
+                        <el-input v-model="row.anotherName.shortName" placeholder="短缩写" />
+                        <el-input v-model="row.anotherName.icaoName" placeholder="icao缩写" />
+
+                    </template>
+                </el-table-column>
+
+
+
+                <el-table-column label="操作" fixed="right">
+                    <template #default="{ $index }">
+                        <el-button type="danger" :icon="Minus" @click="removeRow($index)">
+                            删除
+                        </el-button>
+                    </template>
+
+                </el-table-column>
+            </el-table>
+            <div style="margin: 10px 0">
+                <el-button type="primary" :icon="Plus" @click="addRow">
+                    添加一行数据
+                </el-button>
+            </div>
+        </div>
+
         <div style="text-align: right">
             <el-radio-group v-model="radio" :options="options" />
 
@@ -276,12 +355,36 @@ const emptyAirportForm = () => ({
 
 const addAirportDataForm = ref([])
 const addRow = () => {
-    addAirportDataForm.value.push(emptyAirportForm())
+    if (mode.value == 'airport') {
+        addAirportDataForm.value.push(emptyAirportForm())
+
+    } if (mode.value == 'aircraft') {
+        addAircraftDataForm.value.push(emptyAircraftForm())
+
+    }
 }
 
 const removeRow = (index) => {
-    addAirportDataForm.value.splice(index, 1)
+    if (mode.value == 'airport') {
+        addAirportDataForm.value.splice(index, 1)
+
+    } if (mode.value == 'aircraft') {
+        addAircraftDataForm.value.splice(index, 1)
+
+    }
 }
+
+const emptyAircraftForm = () => ({
+    aircraftType: '',
+    aircraftNumber: { name: [] },
+    anotherName: {
+        'caacName': '',
+        'icaoName': '',
+        'shortName': '',
+    }
+})
+const addAircraftDataForm = ref([])
+
 
 const emptyFlightForm = () => ({
     season: '',
@@ -310,12 +413,16 @@ watch(
         if (isEditing && editData) {
             // 深拷贝一份，避免直接修改父组件数据
             //   addFlightDataForm.value = editData
-            if(mode.value=='flight'){
+            if (mode.value == 'flight') {
                 addFlightDataForm.value = Array.isArray(editData) ? editData : [editData]
 
             }
-            if(mode.value=='airport'){
+            if (mode.value == 'airport') {
                 addAirportDataForm.value = Array.isArray(editData) ? editData : [editData]
+
+            }
+            if (mode.value == 'aircraft') {
+                addAircraftDataForm.value = Array.isArray(editData) ? editData : [editData]
 
             }
 
@@ -682,6 +789,15 @@ const syncDataToFather = (source) => {
             return;
         }
         submitData = addAirportDataForm.value
+
+    } if (mode.value == 'aircraft') {
+        console.log('addAircraftDataForm.value', addAircraftDataForm.value)
+
+        if (!addAircraftDataForm.value.length) {
+            ElMessage.error('机场数据不可为空');
+            return;
+        }
+        submitData = addAircraftDataForm.value
 
     }
 

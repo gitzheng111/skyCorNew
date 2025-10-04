@@ -35,6 +35,9 @@ const handleSelect = (key) => {
     case '4-1':
       router.push('/airportInfo');
       break;
+    case '4-2':
+      router.push('/aircraftManage');
+      break;
   }
   console.log('router', router)
   // 修复4：删除 activeIndex.value = key（不要手动修改，由watch自动更新）
@@ -46,6 +49,9 @@ watch(
   (newPath) => {
     if (newPath === '/airportInfo') {
       activeIndex.value = '4-1';
+    }
+    if (newPath === '/aircraftManage') {
+      activeIndex.value = '4-2';
     }
     if (newPath === '/overflyData') {
       activeIndex.value = '3-3';
@@ -98,6 +104,7 @@ watch(
     <el-sub-menu index="4">
       <template #title>基础数据</template>
       <el-menu-item index="4-1">机场数据</el-menu-item>
+      <el-menu-item index="4-2">机型数据</el-menu-item>
 
     </el-sub-menu>
   </el-menu>

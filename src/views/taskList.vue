@@ -154,6 +154,9 @@
                                     </el-icon>
                                     {{ useAllAircraftTypesStatus ? '还原原机型申请' :
                                         '使用全机型申请' }}</el-button>
+                                <el-segmented v-model="useAircraftOption" :options="aircraftOptions"
+                                    @change="useChooseAircraft" size="large" />
+
 
 
                             </div>
@@ -287,7 +290,7 @@
 
                                                         <el-button @click="reMakeApply">{{ needMakeApplyDoc ? '关闭制作区' :
                                                             '展开制作区'
-                                                        }}</el-button>
+                                                            }}</el-button>
 
                                                         <div v-if="needMakeApplyDoc" class="applyDocWindow"
                                                             style="display: flex;flex-direction: row;">
@@ -482,7 +485,7 @@
 </template>
 <script setup>
 // import { taskListInServer } from '../api';
-import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList } from '../api.js';
+import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList, getAircraftType } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw, watchEffect } from 'vue'
 import { getLastSunday, calculateSeasons } from '../utils/seasonCalculator'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -798,26 +801,7 @@ function useFullCycle(viewData) {
     return { ...viewData, data: newData };
 }
 
-// 使用全机型申请：修改 aircraftTypes
-function useAllAircraftTypes(viewData) {
-    if (!viewData || !Array.isArray(viewData.data)) return viewData;
 
-    const newData = viewData.data.map(item => {
-        if (item.overflyCountry === curCountryInfo.value.country && Array.isArray(item.flightList)) {
-            return {
-                ...item,
-                flightList: item.flightList.map(flight => ({
-                    ...flight,
-                    aircraftType: "B737/B738/B7M8/A21N/B788/B789"
-                })),
-                aircraftTypeAll: "B737/B738/B7M8/A21N/B788/B789"
-            };
-        }
-        return item;
-    });
-
-    return { ...viewData, data: newData };
-}
 const allFullCycle = ref(false)
 const useFullCycleStatus = ref(false)
 const useFullCycleRecord = ref(null)
@@ -844,11 +828,59 @@ function applyFullCycle() {
 
 
 }
+const useAircraftOption = ref('origin')
+const aircraftOptions = [{ label: '原始', value: 'origin' }, { label: '全部', value: 'all' }, { label: '787系列', value: '787' }, { label: '737系列', value: '737' }, { label: '空客系列', value: 'A' }, { label: '自定义', value: 'others' }]
+
 const useAllAircraftTypesStatus = ref(false)
 const useAllAircraftTypesRecord = ref(null)
-function applyAllAircraft() {
+const useChooseAircraft = () => {
+    console.log('useAircraftOption', useAircraftOption)
     if (useAllAircraftTypesStatus.value === false) {
-        console.log('使用全周期')
+
+        useAllAircraftTypesRecord.value = viewData.value
+        viewData.value = useAllAircraftTypes(viewData.value);
+        console.log('useAllAircraftTypes(viewData.value)', useAllAircraftTypes(viewData.value))
+        useAllAircraftTypesStatus.value = true
+    } else {
+        console.log('回到原周期')
+
+        viewData.value = useAllAircraftTypesRecord.value
+        useAllAircraftTypesRecord.value = null
+        useAllAircraftTypesStatus.value = false
+
+    }
+    console.log('点击全机型的viewData', viewData)
+    // curCountryData.value = viewData.value.data[0]
+    curCountryData.value = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
+}
+function useAllAircraftTypes(viewData) {
+    if (!viewData || !Array.isArray(viewData.data)) return viewData;
+
+    const newData = viewData.data.map(item => {
+        if (item.overflyCountry === curCountryInfo.value.country && Array.isArray(item.flightList)) {
+            return {
+                ...item,
+                flightList: item.flightList.map(flight => ({
+                    ...flight,
+                    // aircraftType: "B737/B738/B7M8/A21N/B788/B789"
+                    aircraftType: aircraftTransferToOutput(useAircraftOption.value, 'icaoName')
+                })),
+                aircraftTypeAll: aircraftTransferToOutput('all', 'icaoName')
+            };
+        }
+        return item;
+    });
+
+    return { ...viewData, data: newData };
+}
+function applyAllAircraft() {
+    // console.log('useAllAircraftTypesStatus', useAllAircraftTypesStatus)
+
+    if (useAllAircraftTypesStatus.value === false) {
+
+        // const chooseType = aircraftTransferToOutput('all', 'icaoName')
+        console.log('使用全周期', allType)
+
         useAllAircraftTypesRecord.value = viewData.value
         viewData.value = useAllAircraftTypes(viewData.value);
 
@@ -887,7 +919,7 @@ const changeCountry = (country) => {
     console.log('切换后的国家申请数据', curCountryData.value)
 }
 const createApplyDoc = async (attribution, type) => {
-    
+
     if (allFullCycle.value == false && useFullCycleStatus.value == false) {
         try {
             await ElMessageBox.confirm(
@@ -1043,6 +1075,57 @@ const reMakeApply = () => {
     needMakeApplyDoc.value = !needMakeApplyDoc.value
 }
 const taskListLoaded = ref(false)
+
+const matchAircraft = (input) => {
+    const aircraftTypeData = aircraftType.value
+    const normalized = input.trim().toUpperCase().replace(/-/g, '') // 去掉 -，方便匹配
+
+    return (
+        aircraftTypeData.find(aircraft =>
+            aircraft.aircraftType?.replace(/-/g, '').toUpperCase().includes(normalized) ||
+            aircraft.anotherName?.caacName?.toUpperCase() === normalized ||
+            aircraft.anotherName?.icaoName?.toUpperCase() === normalized ||
+            aircraft.anotherName?.shortName?.toUpperCase() === normalized
+        ) || null
+    )
+}
+const aircraftTransferToOutput = (input, outputField) => {
+    console.log('input', input, 'outputField', outputField)
+    const data = aircraftType.value
+    if (!input || !Array.isArray(data)) return null
+    const normalized = input.trim().toUpperCase()
+
+    // 特殊情况：all
+    if (normalized === 'ALL') {
+        return data
+            .map(ac => ac.anotherName?.[outputField] || ac[outputField] || ac.aircraftType)
+            .join('/')
+    }
+    if (/^\d+$/.test(normalized) || /^[A-Z0-9]+$/.test(normalized)) {
+        const matched = data.filter(ac =>
+            ac.aircraftType?.toUpperCase().includes(normalized)
+        )
+        if (matched.length > 1) {
+            return matched
+                .map(ac => ac.anotherName?.[outputField] || ac[outputField] || ac.aircraftType)
+                .join('/')
+        }
+    }
+
+    // 支持组合输入，用 / 分隔
+    const parts = normalized.split('/').map(p => p.trim()).filter(Boolean)
+
+    const results = parts.map(part => {
+        const match = matchAircraft(part)
+        if (match) {
+            // 返回指定字段，如果没有就降级到 icaoName 或 aircraftType
+            return match.anotherName?.[outputField] || match[outputField] || match.aircraftType
+        }
+        return part // 没匹配到原样返回
+    })
+
+    return results.join('/')
+}
 watch(
     () => curCountryData.value,
     (newVal) => {
@@ -1061,6 +1144,7 @@ watch(
     },
     { deep: true, immediate: true }
 )
+const aircraftType = ref()
 onMounted(async () => {
     try {
         // const flightResponse = await getFlights();
@@ -1073,7 +1157,9 @@ onMounted(async () => {
         countryList.value = countryResponse.data
         taskListLoaded.value = true
         console.log('taskListLoaded', taskListLoaded)
-
+        const aircraftTypeResponse = await getAircraftType()
+        aircraftType.value = aircraftTypeResponse.data
+        console.log('taskListLoaded', aircraftType)
 
     } catch (error) {
         console.error('API error:', error);

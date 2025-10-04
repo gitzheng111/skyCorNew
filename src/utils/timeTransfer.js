@@ -25,6 +25,24 @@ const getAirportTimeZone = (airportCode) => {
     }
 }
 // 获取北京时间（GMT+8）对应的 UTC 时间
+// export function beijingToUTC(beijingTimeStr) {
+//     // 解析北京时间字符串
+//     // console.log('beijingTimeStr', beijingTimeStr)
+//     let beijingTime = null;
+
+//     for (const fmt of formatsToTry) {
+//         beijingTime = parse(beijingTimeStr, fmt, new Date());
+//         if (isValid(beijingTime)) break;
+//     }
+
+//     // console.log('beijingTime', beijingTime)
+//     if (!isValid(beijingTime)) {
+//         throw new Error('Invalid Beijing time format');
+
+//     }
+//     const utcTime = new Date(beijingTime.getTime() - 8 * 60 * 60 * 1000); // 北京时间减去8小时获得UTC时间
+//     return format(utcTime, 'HH:mm'); // 返回UTC时间，08:00格式
+// }
 export function beijingToUTC(beijingTimeStr) {
     // 解析北京时间字符串
     // console.log('beijingTimeStr', beijingTimeStr)
@@ -41,9 +59,13 @@ export function beijingToUTC(beijingTimeStr) {
 
     }
     const utcTime = new Date(beijingTime.getTime() - 8 * 60 * 60 * 1000); // 北京时间减去8小时获得UTC时间
-    return format(utcTime, 'HH:mm'); // 返回UTC时间，08:00格式
+    let result = format(utcTime, 'HH:mm')
+    if (result === '00:00') {
+        result = '00:05';
+      }
+    // console.log('utcTime',utcTime)
+    return result; // 返回UTC时间，08:00格式
 }
-
 // 获取UTC时间转换为北京时间（GMT+8）
 export function utcToBeijing(utcTimeStr) {
     // 解析UTC时间字符串

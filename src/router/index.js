@@ -45,6 +45,12 @@ const routes = [
     name: 'airportInfo',
     component: () => import('/src/views/airportInfo.vue')
    
+  } ,
+  {
+    path: '/aircraftManage',
+    name: 'aircraftManage',
+    component: () => import('/src/views/aircraftManage.vue')
+   
   }
 ]
 

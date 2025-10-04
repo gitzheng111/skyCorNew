@@ -34,6 +34,15 @@
                         <el-form-item label="航线代码">
                             <el-input v-model="form.routeCode" placeholder="航线代码" />
                         </el-form-item>
+                        <el-form-item label="飞越国家">
+                            <div v-for="(c, idx) in form.overflyCountry" :key="idx"
+                                style="display:flex;align-items:center;margin-bottom:6px;">
+                                <el-input v-model="c.country" placeholder="飞越国家名称" style="flex:1;" />
+                                <el-button type="danger" link @click="form.overflyCountry.splice(idx, 1)">删除</el-button>
+                            </div>
+                            <el-button type="primary" link @click="addCountry(form)">+ 添加国家</el-button>
+
+                        </el-form-item>
 
                         <!-- 飞越国家 -->
                         <!-- <el-form-item label="飞越国家">
@@ -90,7 +99,7 @@
                             <el-table-column prop="sector" label="航段" />
                             <el-table-column prop="routeCode" label="航线代码" />
                             <el-table-column prop="departure" label="起飞机场" />
-                            
+
                             <el-table-column prop="arrival" label="目的机场" />
                             <el-table-column prop="ATSroute" label="航路" />
 
@@ -101,7 +110,7 @@
                                         <!-- overflyCountry 可能是数组 -->
                                         {{Array.isArray(row.overflyCountry)
                                             ? row.overflyCountry.map(c => c.country).join(',')
-                                        : '' }}
+                                            : ''}}
                                     </span>
                                 </template>
                             </el-table-column>
@@ -161,10 +170,10 @@
                     {{ isEditing ? '更新' : '创建' }}
                 </el-button>
             </div>
-            <div v-if="props.uploading" class="progressMask">
+            <!-- <div v-if="props.uploading" class="progressMask">
 
                 <el-progress type="circle"></el-progress>
-            </div>
+            </div> -->
         </div>
     </el-dialog>
 
@@ -252,7 +261,7 @@ const props = defineProps({
     },
     uploading: Boolean,
     editData: Array,
-    filteredData:Array
+    filteredData: Array
 })
 const totalRoutes = ref([]);       // 总表
 const overflyData = ref({});       // 飞越国境表 (所有 sheet)
@@ -313,6 +322,15 @@ const getColumns = (rules) => {
     if (!Array.isArray(rules) || !rules.length) return [];
     return [...new Set(rules.flatMap(rule => Object.keys(rule)))];
 };
+const addCountry = (form) => {
+    form.overflyCountry.push({
+        country: '',
+        isPermit: false,
+        needPermit: 1,
+        overflyDetails: [],
+        permissionNumber: null
+    });
+}
 
 const modeOption = ref(['manAdd', 'byExcel', 'autoRead'])
 const modeLabels = {
@@ -337,7 +355,7 @@ const regexRules = {
     // ATS 路径串，例如：SARIN M166 KRG T523 ATBAN L994 TITUR
     // ATSroute: /^(?=.*\d)(?:[A-Z0-9]+\s+)*[A-Z0-9]+$/,
     // ATSroute: /^(?:(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])\s+)+(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/,
-   ATSroute : /\b([A-Z]{3,5}|[A-Z][0-9]{2,3}|DCT|\d{2,3}[NS]\d{3}[EW])\b/g,
+    ATSroute: /\b([A-Z]{3,5}|[A-Z][0-9]{2,3}|DCT|\d{2,3}[NS]\d{3}[EW])\b/g,
 
     // 航路点（Entry/Exit），通常是大写 3~6 个字母
     waypoint: /^(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/,
@@ -598,55 +616,55 @@ function mergeRouteWithOverfly(sheetDataMap, mainSheetName = "2025年夏秋季CF
         };
     });
 }
-const submitAllRoute =()=>{
+const submitAllRoute = () => {
     const { conflicts, nonConflicts, sameList } = compareRouteData(filteredData.value, totalRoutes.value, curSeason.value)
-    console.log('conflicts',conflicts)
-    console.log('nonConflicts',nonConflicts)
-    console.log('sameList',sameList)
+    console.log('conflicts', conflicts)
+    console.log('nonConflicts', nonConflicts)
+    console.log('sameList', sameList)
 
 
 }
 const compareRouteData = (newRoutes, oldRoutes, curSeason) => {
-  const conflicts = []
-  const nonConflicts = [] // 新增
-  const sameList = []
+    const conflicts = []
+    const nonConflicts = [] // 新增
+    const sameList = []
 
-  // 根据 sector + routeCode（如果有）来做唯一标识
-  const getKey = (route) => `${route.sector}_${route.routeCode || ''}`
+    // 根据 sector + routeCode（如果有）来做唯一标识
+    const getKey = (route) => `${route.sector}_${route.routeCode || ''}`
 
-  const oldMap = new Map()
-  oldRoutes.forEach(r => oldMap.set(getKey(r), r))
+    const oldMap = new Map()
+    oldRoutes.forEach(r => oldMap.set(getKey(r), r))
 
-  newRoutes.forEach(newRoute => {
-    const key = getKey(newRoute)
-    const oldRoute = oldMap.get(key)
+    newRoutes.forEach(newRoute => {
+        const key = getKey(newRoute)
+        const oldRoute = oldMap.get(key)
 
-    if (!oldRoute) {
-      // 旧数据里没找到 → 新增
-      nonConflicts.push(newRoute)
-    } else {
-      // 找到了 → 比较关键字段
-      const fieldsToCompare = [
-        'ATSroute', 'entryPoint', 'exitPoint', 'EET', 'flightLevel', 'speed'
-      ]
-      const hasConflict = fieldsToCompare.some(
-        field => (newRoute[field] || '') !== (oldRoute[field] || '')
-      )
+        if (!oldRoute) {
+            // 旧数据里没找到 → 新增
+            nonConflicts.push(newRoute)
+        } else {
+            // 找到了 → 比较关键字段
+            const fieldsToCompare = [
+                'ATSroute', 'entryPoint', 'exitPoint', 'EET', 'flightLevel', 'speed'
+            ]
+            const hasConflict = fieldsToCompare.some(
+                field => (newRoute[field] || '') !== (oldRoute[field] || '')
+            )
 
-      if (hasConflict) {
-        conflicts.push({
-          sector: newRoute.sector,
-          routeCode: newRoute.routeCode,
-          oldRoute,
-          newRoute
-        })
-      } else {
-        sameList.push(newRoute)
-      }
-    }
-  })
+            if (hasConflict) {
+                conflicts.push({
+                    sector: newRoute.sector,
+                    routeCode: newRoute.routeCode,
+                    oldRoute,
+                    newRoute
+                })
+            } else {
+                sameList.push(newRoute)
+            }
+        }
+    })
 
-  return { conflicts, nonConflicts, sameList }
+    return { conflicts, nonConflicts, sameList }
 }
 
 
@@ -701,10 +719,10 @@ function compareData(curOverflyData, newData, curSeason) {
     return { conflicts, nonConflicts, sameList }
 }
 
-const deleteTemRouteData = ()=>{
+const deleteTemRouteData = () => {
     totalRoutes.value = []
 }
-const deleteTemOverflyData = ()=>{
+const deleteTemOverflyData = () => {
     overflyData.value = []
 }
 
@@ -792,12 +810,23 @@ const confirmConflict = async () => {
 }
 // 提交
 const onSubmit = async () => {
-    const submitData = mergedRoutes.value.map(row => {
-        return {
-            ...toRaw(row),
-            overflyCountry: JSON.stringify(row.overflyCountry || [])
-        }
-    });
+    let submitData = []
+    if (isEditing) {
+        submitData = addRouteForms.value.map(row => {
+            return {
+                ...toRaw(row),
+                overflyCountry: JSON.stringify(row.overflyCountry || [])
+            }
+        });
+    } else {
+        submitData = mergedRoutes.value.map(row => {
+            return {
+                ...toRaw(row),
+                overflyCountry: JSON.stringify(row.overflyCountry || [])
+            }
+        });
+    }
+
     console.log('submitData', submitData)
     emit('submit', submitData)
 }
