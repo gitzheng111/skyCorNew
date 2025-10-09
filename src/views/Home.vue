@@ -66,14 +66,14 @@ const loadFlightData = async () => {
             // 路线匹配
             let routeMatch = true;
             const routeOverflyDetails = Array.isArray(countryObj.overflyDetails) ? countryObj.overflyDetails : [];
-    if (routeOverflyDetails.length > 0) {
-      routeMatch = routeOverflyDetails.some(rRoute =>
-        overflyDetails.some(rTask =>
-          rRoute.entryPoint === rTask.entryPoint &&
-          rRoute.exitPoint === rTask.exitPoint
-        )
-      );
-    }
+            if (routeOverflyDetails.length > 0) {
+              routeMatch = routeOverflyDetails.some(rRoute =>
+                overflyDetails.some(rTask =>
+                  rRoute.entryPoint === rTask.entryPoint &&
+                  rRoute.exitPoint === rTask.exitPoint
+                )
+              );
+            }
             // console.log(`flightNumber${flight.flightNumber}`,overflyDetails,route.entryPoint,route.exitPoint,routeMatch)
             if (flightMatchItem && routeMatch) {
               matched = true;
@@ -205,17 +205,21 @@ onActivated(() => {
     }
   )
 })
+import { useLoading } from '../plugins/loading'
 
+const loading = useLoading()
 onMounted(async () => {
   try {
     // const flightResponse = await getFlights();
     // if (route.query.refresh) {
     //   loadFlightData()
     // }
+    loading.show('正在加载航班数据，请稍候...')
     await loadFlightData()
     const routeResponse = await getRoutes();
     const permissionResponse = await getPermission();
     const ACtypeResponse = await getAircraftType()
+    loading.hide()
     // const airportResponse = await getAirportCode()
 
     // flightsData.value = flightResponse.data;

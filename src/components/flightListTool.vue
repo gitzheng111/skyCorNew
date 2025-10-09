@@ -19,63 +19,8 @@
         <div style="flex: 3; padding: 10px; border-right: 1px solid #ccc; overflow: auto;">
             <!-- <template #first> -->
             <h3>所有航班({{ filteredFlights.length }}个航班)</h3>
-            <el-table :data="filteredFlights" @selection-change="handleSelectionChange">
-                <el-table-column type="expand">
-                    <template #default="{ row }">
-                        <div class="expand-content">
-
-                            <h4>航路详情</h4>
-                            <el-tabs>
-                                <el-tab-pane v-for="(route, index) in row.matchingRoutes" :key="index">
-                                    <template #label>
-                                        <span>
-                                            {{ route.routeCode }}
-                                            <el-tag v-if="route.isValid == true" type="success" size="small"
-                                                effect="plain">可使用</el-tag>
-                                            <el-tag v-if="route.isValid == false & route.taskKeys?.length>0"
-                                                type="warning" size="small" effect="plain"
-                                                @click="openTaskDialog(route.taskKeys)">正在申请</el-tag>
-                                            <el-tag v-if="route.isValid == false & route.taskKeys?.length == 0"
-                                                type="danger" size="small" effect="plain">未申请</el-tag>
-                                        </span>
-                                    </template>
-                                    <div>{{ route.ATSroute }}</div>
-                                    <div>
-                                        <el-segmented v-model="curCountryUnderRoute"
-                                            :options="generateSegmentedOptions(route, row)"
-                                            @change="val => showOverflyDetail(route, val)"
-                                            @click="checkClickCountry()" />
-
-                                    </div>
-                                    <div v-if="curClickCountryDetails">
-                                        <h4>飞越航路详情</h4>
-
-                                        <overflyDataView
-                                            :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
-                                    </div>
-
-
-                                </el-tab-pane>
-                            </el-tabs>
-                            <!-- <div>{{ filterRoute(row.departure, row.arrival) }}</div> -->
-
-
-                            <h4>燃油信息</h4>
-                            <el-descriptions v-if="row.fuel_detail" :column="2" border>
-                                <el-descriptions-item label="合同名称">{{ row.fuel_detail.name }}</el-descriptions-item>
-                                <el-descriptions-item label="开始日期">{{ row.fuel_detail.startDate
-                                }}</el-descriptions-item>
-                                <el-descriptions-item label="结束日期">{{ row.fuel_detail.endDate
-                                }}</el-descriptions-item>
-                                <el-descriptions-item label="关联机场">{{ row.fuel_detail.relateAirport
-                                }}</el-descriptions-item>
-                            </el-descriptions>
-                            <el-empty v-else description="未查到相关合同" :image-size="50">
-                                <!-- <el-button type="primary">查看关联度最大合同</el-button> -->
-                            </el-empty>
-                        </div>
-                    </template>
-                </el-table-column>
+            <el-table :data="filteredFlights" @selection-change="handleSelectionChange" @row-click="showClickRowDetail">
+                
                 <el-table-column type="selection" width="55" />
 
                 <el-table-column label="航季">
@@ -125,7 +70,7 @@
                 </el-table-column>
                 <el-table-column prop="days" label="班期" width="200">
                     <template #default="{ row }">
-                        <DaysShow :days="row.days"/>
+                        <DaysShow :days="row.days" />
 
                     </template>
                     <!-- <template #default="{ row }">
@@ -166,7 +111,7 @@
                         <!-- <daysPicker v-model="" /> -->
                     </template>
                 </el-table-column>
-              
+
                 <el-table-column fixed="right" label="Operations" min-width="120">
                     <!-- <template #default="{ row }">
                         <el-button link type="primary" size="small" @click="deleteFlight(row.flight_id)">
@@ -180,6 +125,94 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <el-drawer v-model="drawerVisible" title="航班详情" direction="rtl" size="40%" :destroy-on-close="true">
+                <template v-if="clickFlight">
+                    <el-descriptions title="基本信息" :column="2" border>
+                        <el-descriptions-item label="航班号">{{ clickFlight.flightNumber }}</el-descriptions-item>
+                        <el-descriptions-item label="航季">{{ clickFlight.season }}</el-descriptions-item>
+                        <el-descriptions-item label="性质">{{ clickFlight.attribution }}</el-descriptions-item>
+                        <el-descriptions-item label="机型">{{ clickFlight.aircraftType }}</el-descriptions-item>
+                    </el-descriptions>
+
+                    <el-descriptions title="时间信息" :column="2" border class="mt-3">
+                        <el-descriptions-item label="起飞机场">{{ clickFlight.departure }}</el-descriptions-item>
+                        <el-descriptions-item label="到达机场">{{ clickFlight.arrival }}</el-descriptions-item>
+                        <el-descriptions-item label="起飞时间">{{ formatTime(clickFlight.departureTime)
+                        }}</el-descriptions-item>
+                        <el-descriptions-item label="到达时间">{{ formatTime(clickFlight.arrivalTime)
+                        }}</el-descriptions-item>
+                    </el-descriptions>
+
+                    <el-divider>航路详情</el-divider>
+                    <div v-if="clickFlight.matchingRoutes?.length">
+                        <el-collapse>
+                            <el-collapse-item v-for="(route, index) in clickFlight.matchingRoutes" :key="index"
+                                :title="route.routeCode">
+                                <div>航路：{{ route.ATSroute }}</div>
+                                <div>状态：
+                                    <el-tag v-if="route.isValid" type="success">可使用</el-tag>
+                                    <el-tag v-else-if="route.taskKeys?.length" type="warning">正在申请</el-tag>
+                                    <el-tag v-else type="danger">未申请</el-tag>
+                                </div>
+                                <div>
+                                    <el-segmented v-model="curCountryUnderRoute"
+                                        :options="generateSegmentedOptions(route, clickFlight)"
+                                        @change="val => showOverflyDetail(route, val)" @click="checkClickCountry()" />
+
+                                </div>
+                                <div v-if="curClickCountryDetails">
+                                    <h4>飞越航路详情</h4>
+
+                                    <overflyDataView :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+                        <!-- <el-tabs>
+                            <el-tab-pane v-for="(route, index) in clickFlight.matchingRoutes" :key="index">
+                                <template #label>
+                                    <span>
+                                        {{ route.routeCode }}
+                                        <el-tag v-if="route.isValid == true" type="success" size="small"
+                                            effect="plain">可使用</el-tag>
+                                        <el-tag v-if="route.isValid == false & route.taskKeys?.length > 0"
+                                            type="warning" size="small" effect="plain"
+                                            @click="openTaskDialog(route.taskKeys)">正在申请</el-tag>
+                                        <el-tag v-if="route.isValid == false & route.taskKeys?.length == 0"
+                                            type="danger" size="small" effect="plain">未申请</el-tag>
+                                    </span>
+                                </template>
+                                <div>{{ route.ATSroute }}</div>
+                                <div>
+                                    <el-segmented v-model="curCountryUnderRoute"
+                                        :options="generateSegmentedOptions(route, row)"
+                                        @change="val => showOverflyDetail(route, val)" @click="checkClickCountry()" />
+
+                                </div>
+                                <div v-if="curClickCountryDetails">
+                                    <h4>飞越航路详情</h4>
+
+                                    <overflyDataView :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
+                                </div>
+
+
+                            </el-tab-pane>
+                        </el-tabs> -->
+                    </div>
+                    <el-empty v-else description="无匹配航路"></el-empty>
+
+                    <el-divider>燃油信息</el-divider>
+                    <el-descriptions v-if="clickFlight.fuel_detail" :column="2" border>
+                        <el-descriptions-item label="合同名称">{{ clickFlight.fuel_detail.name }}</el-descriptions-item>
+                        <el-descriptions-item label="开始日期">{{ clickFlight.fuel_detail.startDate
+                        }}</el-descriptions-item>
+                        <el-descriptions-item label="结束日期">{{ clickFlight.fuel_detail.endDate
+                        }}</el-descriptions-item>
+                        <el-descriptions-item label="关联机场">{{ clickFlight.fuel_detail.relateAirport
+                        }}</el-descriptions-item>
+                    </el-descriptions>
+                    <el-empty v-else description="未查到相关合同" />
+                </template>
+            </el-drawer>
             <!-- <addDataTool :mode="'flight'" v-model:visible="addFlightVisible" :isEditing="editFlightMode" @parsed="handleProcessData" :editData="editDataFromFather" :originData="parentFlights"/> -->
             <addFlightTool v-model:visible="addFlightVisible" :isEditing="editFlightMode" @parsed="handleProcessData"
                 :editData="editDataFromFather" :originData="parentFlights" />
@@ -423,7 +456,10 @@ import overflyDataView from '../utils/overflyDataView.vue'
 import { formatDate } from '../utils/tool.js'
 import flightCard from '../utils/flightCard.vue'
 import addDataTool from '../utils/addDataTool.vue'
-import DaysShow from  '../utils/daysShow.vue'
+import DaysShow from '../utils/daysShow.vue'
+import { useLoading } from '../plugins/loading'
+
+const loading = useLoading()
 const router = useRouter()
 const parentFlights = ref([])
 const parentRoutes = ref([])
@@ -640,12 +676,12 @@ const createFilter = (queryString) => {
 const editFlightMode = ref(false)
 const editDataFromFather = ref()
 const editFlight = (data) => {
-    
-     editDataFromFather.value = []
+
+    editDataFromFather.value = []
     addFlightVisible.value = true
     editFlightMode.value = true
     editDataFromFather.value = data
-    console.log('editDataFromFather',editDataFromFather.value)
+    console.log('editDataFromFather', editDataFromFather.value)
 }
 //处理子组件增加航班的数据
 const handleProcessData = async (processedDataFromChild) => {
@@ -683,7 +719,7 @@ const onSubmit = async () => {
         console.log('flightResponse ====', flightResponse)
     } else {
 
-        const flightResponse = await addFlightsBatchs(finalData).then(async() => {
+        const flightResponse = await addFlightsBatchs(finalData).then(async () => {
             ElMessage.success('航班数据添加成功');
             const newFlightResponse = await getFlights();
             flightsData.value = newFlightResponse.data
@@ -705,13 +741,20 @@ const deleteFlight = async (flight_id) => {
     console.log('准备删除 flight_id:', flight_id) // 
 
 }
+const clickFlight = ref()
+const drawerVisible = ref(false)
+
 //选择applyRequired
 const handleSelectionChange = (val) => {
     console.log('val', val)
     multipleSelection.value = val;
     console.log('multipleSelection', multipleSelection.value)
 };
-
+const showClickRowDetail = (row) => {
+    clickFlight.value = row
+    drawerVisible.value = true
+    console.log('clickFlight', clickFlight)
+}
 // 弹窗确认批量删除
 const confirmBatchDelete = () => {
     if (!multipleSelection.value.length) {
@@ -783,7 +826,7 @@ const formatTimeFree = (timeStr, airport) => {
 }
 function generateSegmentedOptions(route, row) {
     let countryList = [];
-    console.log('生成标签的',route)
+    console.log('生成标签的', route)
     if (typeof route.overflyCountry === 'string') {
         try {
             countryList = JSON.parse(route.overflyCountry);
@@ -796,14 +839,14 @@ function generateSegmentedOptions(route, row) {
     }
 
     return countryList.map(countryObj => {
-        const { country, needPermit, isPermit ,applyStatus} = countryObj;
+        const { country, needPermit, isPermit, applyStatus } = countryObj;
 
         let label = country;
         if (needPermit == false) {
             label = `${country}（无需申请）`;
         } else if (needPermit == true && applyStatus.status == 'none') {
             label = `${country}（未申请）`;
-        } else if (needPermit == true && applyStatus.status == 'matched' ) {
+        } else if (needPermit == true && applyStatus.status == 'matched') {
             label = `${country}（正在申请）`;
         } else if (needPermit == true && isPermit == true) {
             label = `${country}（已批复）`;
@@ -975,23 +1018,23 @@ const showApplyRequired = () => {
     hideRight.value = !hideRight.value;
 };
 const handleSelectAll = (checked) => {
-  if (checked) {
-    selectedFlights.value = taskNeedData.value.map(f => `${f.flightNumber}-${f.departure}-${f.arrival}`);
+    if (checked) {
+        selectedFlights.value = taskNeedData.value.map(f => `${f.flightNumber}-${f.departure}-${f.arrival}`);
 
-    for (const flight of taskNeedData.value) {
-      const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
-      selectedRoutes.value[key] = flight.route
-        .filter(r => !r.isValid)
-        .map(r => r.routeCode);
+        for (const flight of taskNeedData.value) {
+            const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
+            selectedRoutes.value[key] = flight.route
+                .filter(r => !r.isValid)
+                .map(r => r.routeCode);
+        }
+        console.log('selectedRoutes', selectedRoutes)
+    } else {
+        selectedFlights.value = [];
+        for (const flight of taskNeedData.value) {
+            const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
+            selectedRoutes.value[key] = [];
+        }
     }
-    console.log('selectedRoutes',selectedRoutes)
-  } else {
-    selectedFlights.value = [];
-    for (const flight of taskNeedData.value) {
-      const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
-      selectedRoutes.value[key] = [];
-    }
-  }
 };
 // const handleSelectAll = (checked) => {
 //     // const flightKey = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
@@ -1023,23 +1066,23 @@ const handleFlightSelect = ({ flight, checked }) => {
         selectedFlights.value = selectedFlights.value.filter(f => f !== flight.flightNumber)
         selectedRoutes.value[flight.flightNumber] = []
     }
-    console.log('selectedRoutes',selectedRoutes)
+    console.log('selectedRoutes', selectedRoutes)
 
     updateSelectAllStatus()
 }
 
 const handleRouteSelect = ({ flight, routes }) => {
-  selectedRoutes.value[flight.flightNumber] = routes
-  const totalInvalid = flight.route.filter(r => !r.isValid).length
-  if (routes.length === totalInvalid) {
-    if (!selectedFlights.value.includes(flight.flightNumber)) selectedFlights.value.push(flight.flightNumber)
-  } else {
-    selectedFlights.value = selectedFlights.value.filter(f => f !== flight.flightNumber)
-  }
-  updateSelectAllStatus()
+    selectedRoutes.value[flight.flightNumber] = routes
+    const totalInvalid = flight.route.filter(r => !r.isValid).length
+    if (routes.length === totalInvalid) {
+        if (!selectedFlights.value.includes(flight.flightNumber)) selectedFlights.value.push(flight.flightNumber)
+    } else {
+        selectedFlights.value = selectedFlights.value.filter(f => f !== flight.flightNumber)
+    }
+    updateSelectAllStatus()
 }
 const updateSelectAllStatus = () => {
-  selectAll.value = taskNeedData.value.length > 0 && taskNeedData.value.every(f => selectedFlights.value.includes(f.flightNumber))
+    selectAll.value = taskNeedData.value.length > 0 && taskNeedData.value.every(f => selectedFlights.value.includes(f.flightNumber))
 }
 
 const updateFlightRoutes = (flight, routes) => {
@@ -1210,7 +1253,7 @@ const submitTaskToServer = async () => {
         const res = await addTask(payload)
         //将taskKey同步到航班，方法已遗弃，不能同步
         const routesToUpdate = []
-       
+
         ElMessage.success('任务已提交')
         console.log('提交成功:', res.data)
         showCreateTask.value = false

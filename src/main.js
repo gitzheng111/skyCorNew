@@ -9,6 +9,9 @@ import router from './router';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { createStore } from 'vuex'
 import { fetchAirportCode,fetchTaskList } from './api'
+import loadingPlugin from './plugins/loading'
+
+
 const pinia = createPinia()
 
 const store = createStore({ /* 配置 */ })
@@ -16,6 +19,7 @@ const store = createStore({ /* 配置 */ })
 const app = createApp(App)
 
 app.use(pinia)
+app.use(loadingPlugin)
 
 app.use(router).use(elementPlus).use(store).mount('#app')
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

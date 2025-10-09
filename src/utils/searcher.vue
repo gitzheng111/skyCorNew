@@ -6,23 +6,24 @@
           <template v-if="field.prop === 'season'">
             <SeasonSelect v-model="searchForm[field.prop]" />
           </template>
-          <template  v-else-if="field.prop === 'departure' || field.prop === 'arrival'">
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
+          <template v-else-if="field.prop === 'departure' || field.prop === 'arrival'">
+            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable
+              @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
 
           </template>
-          <template  v-else-if="field.prop === 'filterBefore'">
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable/>
+          <template v-else-if="field.prop === 'filterBefore'">
+            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
 
           </template>
           <template v-else>
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable  />
+            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
 
           </template>
         </el-form-item>
       </template>
 
       <el-form-item>
-        <el-button type="primary" @click="handleSearch" >搜索</el-button>
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="handleReset">重置</el-button>
       </el-form-item>
     </el-form>
@@ -32,7 +33,7 @@
 <script setup>
 import { reactive, computed, watch } from 'vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
-import { seasonCalculate,currentSeasonData } from '../utils/season.js'
+import { seasonCalculate, currentSeasonData } from '../utils/season.js'
 
 const props = defineProps({
   mode: { type: String, required: true }, // flight / route / permission / task
@@ -47,7 +48,9 @@ const fieldMap = {
     { label: '航班号', prop: 'flightNumber' },
     { label: '起飞机场', prop: 'departure' },
     { label: '目的机场', prop: 'arrival' },
-    { label: '几点之前', prop: 'filterBefore' }
+    { label: '几点之前', prop: 'filterBefore' },
+    { label: '飞越国家', prop: 'overflyCountry' }
+
   ],
   route: [
     { label: '航季', prop: 'season' },
@@ -104,10 +107,11 @@ watch(
 //   emit('update:result', filtered)
 // }
 function handleSearch() {
-  console.log('props', props)
+  // console.log('props', props.list)
   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
 
   const filtered = props.list.filter(item => {
+
     return searchFields.value.every(f => {
       const val = searchForm[f.prop]?.trim()
       if (!val) return true
@@ -127,13 +131,39 @@ function handleSearch() {
 
         return flightMinutes <= limit
       }
+      if (f.prop === 'overflyCountry') {
+        const valUpper = val.trim().toUpperCase()
 
+        // 匹配的关键词列表
+        const keywords = valUpper
+          .split(/[\/,，\s]+/)
+          .map(v => v.trim())
+          .filter(Boolean)
+
+        if (keywords.length === 0) return true
+
+        // 确保有 matchingRoutes
+        if (!Array.isArray(item.matchingRoutes)) return false
+
+        // 遍历所有 matchingRoutes
+        return item.matchingRoutes.some(route => {
+          if (!Array.isArray(route.overflyCountry)) return false
+
+          // 检查 route 内每个国家
+          return keywords.some(keyword =>
+            route.overflyCountry.some(c => {
+              const name = (c?.country || '').toUpperCase()
+              return name.includes(keyword)
+            })
+          )
+        })
+      }
       // 🔹 普通字符串匹配逻辑
       const itemVal = Array.isArray(item[f.prop])
         ? item[f.prop].map(c => c.country || c).join(',')
         : (item[f.prop] ?? '').toString()
 
-      return itemVal.includes(val)
+      return itemVal.country.includes(val)
     })
   })
 
