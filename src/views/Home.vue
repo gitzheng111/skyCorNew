@@ -32,12 +32,14 @@ const loadFlightData = async () => {
   const taskResponse = await getTaskList();
   flightsData.value = flightResponse.data;
   taskListInServer.value = taskResponse.data;
-
+  console.log('flightsData',flightsData)
   flightsData.value.forEach(flight => {
+    // console.log(`flightNumber${flight.flightNumber}`,'Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))
+    // if(flight.flightNumber=='MF824'){console.log('Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))}
     if (!Array.isArray(flight.matchingRoutes)) return;
 
     flight.matchingRoutes.forEach(route => {
-      if (route.isValid !== false) return;
+      // if (route.isValid !== false) return;
 
       let allTaskKeys = [];
       // console.log(`flightNumber${flight.flightNumber}`,route)
@@ -53,14 +55,16 @@ const loadFlightData = async () => {
           return task.data.some(item => {
             const flightList = Array.isArray(item.flightList) ? item.flightList : [];
             const overflyDetails = Array.isArray(item.overflyDetails) ? item.overflyDetails : [];
-
+            // console.log('flightList',flightList)
+            // console.log('overflyDetails',overflyDetails)
             // 航班匹配（只比对三大字段）
             const flightMatchItem = flightList.find(f =>
               f.flightNumber === flight.flightNumber &&
               f.departure === flight.departure &&
               f.arrival === flight.arrival
             );
-
+            // if(flight.flightNumber=='MF824'){}
+            // console.log(`航班匹配flightNumber${flight.flightNumber}`,flightMatchItem)
             if (!flightMatchItem) return false;
 
             // 路线匹配
@@ -74,7 +78,8 @@ const loadFlightData = async () => {
                 )
               );
             }
-            // console.log(`flightNumber${flight.flightNumber}`,overflyDetails,route.entryPoint,route.exitPoint,routeMatch)
+            console.log(`航路匹配flightNumber${flight.flightNumber}`,routeMatch)
+            // if(flight.flightNumber=='MF824'){console.log(`航路匹配flightNumber${flight.flightNumber}`,routeMatch)}
             if (flightMatchItem && routeMatch) {
               matched = true;
 
@@ -91,7 +96,7 @@ const loadFlightData = async () => {
             return flightMatchItem && routeMatch;
           });
         });
-
+        // console.log(`航班匹配flightNumber${flight.flightNumber}`,'matched',matched)
         // ✅ 统一的 applyStatus 结构
         if (matched && Object.keys(differences).length === 0) {
           countryObj.applyStatus = { status: 'matched', details: {} };

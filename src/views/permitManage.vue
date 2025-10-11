@@ -6,34 +6,114 @@
 
 
         <!-- 搜索结果表格 -->
-        <el-table :data="filteredData" style="width: 100%">
-            <el-table-column label="航季" prop="Season"></el-table-column>
+        <el-table :data="filteredData" style="width: 100%" @row-click="showClickRowDetail">
+            <el-table-column label="航季" prop="season"></el-table-column>
             <el-table-column label="国家" prop="country"></el-table-column>
-            <el-table-column label="批复号" prop="permissionNumber"></el-table-column>
-            <el-table-column label="批复航班" prop="relateFlights">
+            <el-table-column label="批复号" prop="permissionNumber">
                 <template #default="{ row }">
-                    <div v-for="flight in row.relateFlights" :key="flight.flightNum">{{ flight.flightNum }}</div>
+                    {{ row.permissionNumber ? row.permissionNumber : '无批复号' }}
+                </template>
+
+            </el-table-column>
+            <el-table-column label="批复航班" prop="relateFlights" style="overflow: hidden;">
+                <template #default="{ row }">
+                    <div class="tag-cell">
+                        <el-tag v-for="flight in row.fileData?.permitFlight || []" :key="flight.flightNumber"
+                            size="small">
+                            {{ flight.flightNumber }}
+                        </el-tag>
+                    </div>
                 </template>
             </el-table-column>
-            <el-table-column label="起始时间" prop="startDate"></el-table-column>
-            <el-table-column label="结束时间" prop="endDate"></el-table-column>
+
         </el-table>
 
         <el-dialog v-model="showAddPermission">
-            <el-form ref="formRef" :model="form" label-width="100px">
-                <el-form-item label="国家">
-                    <el-input v-model="form.country" placeholder="国家" />
-                </el-form-item>
-
-                <el-form-item label="上传文件">
-                    <el-upload :action="uploadURL" :data="toRaw(form)" name="file" :show-file-list="true"
-                        :on-success="handleSuccess" :before-upload="beforeUpload" accept=".pdf,.doc,.docx">
-                        <el-button type="primary">上传批复文件</el-button>
-                    </el-upload>
-                </el-form-item>
-            </el-form>
+            <div>
+                <h3>任务列表</h3>
+                <el-scrollbar height="300px" class="task-list">
+                    <el-card v-for="task in taskList" :key="task.taskKey" class="task-item" shadow="hover"
+                        @click="selectTask(task.taskKey)">
+                        {{ task.taskName }}
+                    </el-card>
+                </el-scrollbar>
+                <h3>选择国家</h3>
+                <div v-if="showChooseCountry">
+                    <el-scrollbar height="300px" class="task-list">
+                        <el-card v-for="country in chooseCountry" :key="country" class="task-item" shadow="hover"
+                            @click="selectCountry(country)">
+                            {{ country }}
+                        </el-card>
+                    </el-scrollbar>
+                </div>
+            </div>
         </el-dialog>
+        <el-drawer v-model="drawerVisible" title="批复详情" direction="rtl" size="40%" :destroy-on-close="true">
+            <div v-if="clickPermit">
+                <h3>批复详情</h3>
 
+                <div>
+                    <h4>国家: {{ clickPermit.country }}</h4>
+                    <p>批复号: {{ clickPermit.permissionNumber? clickPermit.permissionNumber:'无批复号' }}</p>
+
+                    <!-- <p>文件名: {{ clickPermit.fileName }}</p>
+                    <p>上传时间: {{ clickPermit.uploadTime }}</p> -->
+                    <fileView :file="currentFile" :loading="false" @click="previewFile(currentFile)"  />
+                </div>
+
+                <div v-if="clickPermit.fileData">
+                    <!-- 显示 permitFlight -->
+                    <h4>批准航班 (permitFlight)</h4>
+                    <el-table :data="clickPermit.fileData.permitFlight"
+                        style="width: 100%;max-height: 400px;overflow-y: scroll;">
+                        <el-table-column label="航班号" prop="flightNumber"></el-table-column>
+                        <el-table-column label="出发地" prop="departure"></el-table-column>
+                        <el-table-column label="目的地" prop="arrival"></el-table-column>
+                        <el-table-column label="开始日期" prop="startDate"></el-table-column>
+                        <el-table-column label="结束日期" prop="endDate"></el-table-column>
+                    </el-table>
+                </div>
+
+                <div v-if="clickPermit.fileData?.permitRoute">
+                    <!-- 显示 permitRoute -->
+                    <h4>批准航路 (permitRoute)</h4>
+                    <el-table :data="clickPermit.fileData.permitRoute"
+                        style="width: 100%;max-height: 400px;overflow-y: scroll">
+                        <el-table-column label="航路" prop="sector"></el-table-column>
+                        <el-table-column label="ATS 路由" prop="ATSroute"></el-table-column>
+                        <el-table-column label="季节" prop="season"></el-table-column>
+                        <el-table-column label="EET" prop="EET"></el-table-column>
+                    </el-table>
+                </div>
+
+                <div v-if="clickPermit.relateData">
+                    <!-- 显示 applyFlight -->
+                    <h4>申请航班 (applyFlight)</h4>
+                    <el-table :data="clickPermit.relateData.applyFlight"
+                        style="width: 100%;max-height: 400px;overflow-y: scroll">
+                        <el-table-column label="航班号" prop="flightNumber"></el-table-column>
+                        <el-table-column label="出发地" prop="departure"></el-table-column>
+                        <el-table-column label="目的地" prop="arrival"></el-table-column>
+                        <el-table-column label="开始日期" prop="startDate"></el-table-column>
+                        <el-table-column label="结束日期" prop="endDate"></el-table-column>
+                    </el-table>
+                </div>
+
+                <div v-if="clickPermit.relateData?.applyRoute">
+                    <!-- 显示 applyRoute -->
+                    <h4>申请航路 (applyRoute)</h4>
+                    <el-table :data="clickPermit.relateData.applyRoute"
+                        style="width: 100%;max-height: 400px;overflow-y: scroll">
+                        <el-table-column label="航路" prop="sector"></el-table-column>
+                        <el-table-column label="ATS 路由" prop="ATSroute"></el-table-column>
+                        <el-table-column label="季节" prop="season"></el-table-column>
+                    </el-table>
+                </div>
+            </div>
+        </el-drawer>
+        <permissionMatch v-model:visible="showAddPermitChoose" :taskKey="selectTaskData?.taskKey" :data="curCountryData"
+            @upload-success="refreshTaskList" />
+        <filePreview :file="currentFile" v-model:visible="previewVisible"  />
         <div class="add-button-box">
             <el-button type="primary" @click="addPermission" class="add-button">新增批复</el-button>
 
@@ -44,19 +124,83 @@
 </template>
 
 <script setup>
-import { getFlights, getRoutes, getPermission, baseURL } from '../api.js';
-import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted,toRaw } from 'vue'
+import { getFlights, getRoutes, getPermission, baseURL, getTaskList, baseFileURL } from '../api.js';
+import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw } from 'vue'
 import { getLastSunday, calculateSeasons } from '../utils/seasonCalculator'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Searcher from '../utils/searcher.vue'
-
+import permissionMatch from '../utils/permissionMatch.vue'
+import fileView from '../utils/fileView.vue'
+import filePreview from '../utils/filePreview.vue'
 const permission = ref()
 const flights = ref()
 const searchQuery = reactive({});
 const searchFields = ref([]);
 const ignoredFields = ['id', 'days'];
 const filteredData = ref([])
+const taskList = ref([])
+const currentFile = ref({})
 const showAddPermission = ref(false)
+const selectTaskData = ref()
+const showAddPermitChoose = ref(false)
+const showChooseCountry = ref(false)
+const chooseCountry = ref()
+const selectTask = (key) => {
+    selectTaskData.value = taskList.value.find(item => item.taskKey == key)
+    if (selectTaskData.value && Array.isArray(selectTaskData.value.data)) {
+        chooseCountry.value = selectTaskData.value.data.map(item => item.overflyCountry)
+        showChooseCountry.value = true
+    } else {
+        chooseCountry.value = []
+    }
+
+    // showAddPermission.value = false
+    // showAddPermitChoose.value = true
+    console.log('selectTaskData', selectTaskData)
+    console.log('chooseCountry', chooseCountry)
+
+}
+const curCountryData = ref()
+const selectCountry = (country) => {
+    curCountryData.value = selectTaskData.value.data.find(item => item.overflyCountry == country)
+    console.log('curCountryData', curCountryData)
+    showAddPermission.value = false
+    showAddPermitChoose.value = true
+    // curCountryData.value=[]
+    // selectTaskData.value = []
+}
+const clickPermit = ref()
+const drawerVisible = ref()
+
+const showClickRowDetail = (row) => {
+    clickPermit.value = row
+    drawerVisible.value = true
+    console.log('clickPermit', clickPermit)
+    currentFile.value = {
+        uploadTime: row.uploadTime,
+        name: row.fileName,
+        url: row.url
+    }
+}
+function isFullUrl(url) {
+    return /^http?:\/\//.test(url)
+}
+const previewVisible = ref(false)
+const previewFile = (file) => {
+    console.log('file', file)
+    let fullUrl = file.url
+    if (!isFullUrl(file.url)) {
+        fullUrl = baseFileURL + file.url
+    }
+    currentFile.value = {
+        ...toRaw(file),
+        url: fullUrl,
+        source: 'net',
+    }
+    console.log('currentFile', currentFile)
+    previewVisible.value = true
+}
+
 const seasonOptions = [
     {
         value: '2025summer',
@@ -138,22 +282,24 @@ const form = reactive({
 })
 const addPermission = () => {
     showAddPermission.value = true
+    chooseCountry.value = []
+    selectTaskData.value = []
 }
 const uploadURL = baseURL + '/permission/add'
 const beforeUpload = (file) => {
-  const rawForm = toRaw(form) // 转为普通 JS 对象
-    console.log('rawForm',rawForm)
-  if (!rawForm.country) {
-    ElMessage.warning('请先填写国家名')
-    return false
-  }
+    const rawForm = toRaw(form) // 转为普通 JS 对象
+    console.log('rawForm', rawForm)
+    if (!rawForm.country) {
+        ElMessage.warning('请先填写国家名')
+        return false
+    }
 
-  return true
+    return true
 }
-console.log('form',form)
+console.log('form', form)
 const handleSuccess = (res) => {
-  ElMessage.success('上传成功')
-  showAddPermission.value = false
+    ElMessage.success('上传成功')
+    showAddPermission.value = false
 }
 
 console.log('测试', getSeasonDates('2025S'))
@@ -202,6 +348,8 @@ onMounted(async () => {
         const flightResponse = await getFlights();
         // const routeResponse = await getRoutes();
         const permissionResponse = await getPermission();
+        const res = await getTaskList()
+        taskList.value = res.data
         flights.value = flightResponse.data;
         // routes.value = routeResponse.data;
         permission.value = permissionResponse.data;
@@ -225,6 +373,25 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.tag-cell {
+    display: flex;
+    flex-wrap: nowrap;
+    /* 不换行 */
+    overflow-x: scroll;
+    /* 超出隐藏 */
+    text-overflow: ellipsis;
+    /* 显示省略号 */
+    white-space: nowrap;
+    max-width: 100%;
+    /* 限制宽度 */
+}
+
+.tag-cell .el-tag {
+    margin-right: 4px;
+    flex-shrink: 0;
+    /* 防止 tag 被压扁 */
+}
+
 .day-tag {
     margin-right: 5px;
     margin-bottom: 5px;

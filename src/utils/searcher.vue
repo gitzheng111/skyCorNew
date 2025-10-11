@@ -106,17 +106,36 @@ watch(
 //   console.log('filtered result:', filtered) // 打印搜索结果
 //   emit('update:result', filtered)
 // }
+function normalizeFlightNumber(val) {
+  if (!val) return '';
+
+  let str = val.toString().trim().toUpperCase();
+
+  if (/^CXA\d+$/.test(str)) {
+    // 已经是 CXA 开头的格式
+    return str;
+  } else if (/^MF\d+$/.test(str)) {
+    // MF 开头 -> 去掉 MF，加上 CXA
+    return 'CXA' + str.replace(/^MF/, '');
+  } else if (/^\d+$/.test(str)) {
+    // 纯数字 -> 加 CXA
+    return 'CXA' + str;
+  }
+
+  // 其他情况原样返回（例如特殊前缀）
+  return str;
+}
 function handleSearch() {
   // console.log('props', props.list)
   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
 
   const filtered = props.list.filter(item => {
-
+    console.log('props.list', props.list)
     return searchFields.value.every(f => {
       const val = searchForm[f.prop]?.trim()
       if (!val) return true
 
-      // 🔹 特殊处理 filterBefore
+      // 特殊处理 filterBefore
       if (f.prop === 'filterBefore') {
         // 只支持 HH:mm 或 HH 格式
         let [h, m] = val.split(':')
@@ -158,12 +177,21 @@ function handleSearch() {
           )
         })
       }
-      // 🔹 普通字符串匹配逻辑
+      if(props.mode == 'permission'&&f.prop === 'flightNumber'){
+        return item.fileData.permitFlight.find(i=>i.flightNumber == normalizeFlightNumber(val))
+      }
+      //  普通字符串匹配逻辑
+      // const itemVal = Array.isArray(item[f.prop])
+      //   ? item[f.prop].map(c => c.country || c).join(',')
+      //   : (item[f.prop] ?? '').toString()
+      // console.log('itemVal',itemVal)
+      // return itemVal.country.includes(val)
       const itemVal = Array.isArray(item[f.prop])
         ? item[f.prop].map(c => c.country || c).join(',')
         : (item[f.prop] ?? '').toString()
 
-      return itemVal.country.includes(val)
+      console.log('itemVal', itemVal)
+      return itemVal.toUpperCase().includes(val.toUpperCase())
     })
   })
 

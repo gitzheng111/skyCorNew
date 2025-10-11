@@ -181,7 +181,7 @@
         </template>
     </el-dialog>
     <filePreview :file="currentFile" v-model:visible="previewVisible" @extract-fields="onFieldsExtracted" />
-    
+
 </template>
 <script setup>
 import { baseFileURL, getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, deleteCountryByIds, addCountryList, updateCountryList } from '../api.js';
@@ -195,6 +195,9 @@ import previewDoc from '../components/previewDoc.vue'
 import { fixEncoding } from '../utils/fileNameEncode.js'
 import filePreview from '../utils/filePreview.vue'
 import Searcher from '../utils/searcher.vue'
+import { useLoading } from '../plugins/loading'
+
+const loading = useLoading()
 
 // import VueOfficeDocx from '@vue-office/docx';
 // import VueOfficeExcel from '@vue-office/excel';
@@ -322,7 +325,7 @@ const saveCountry = async () => {
     // formData.append('applyRequire', JSON.stringify(editCountryData.value.applyRequire || []))
     formData.append('contactInfo', JSON.stringify(editCountryData.value.contactInfo || ''))
     formData.append('permitRules', JSON.stringify(editCountryData.value.permitRules ||
-     []))
+        []))
     formData.append('applyRequire', JSON.stringify(selectedApplyRequire || ''))
     formData.append('needApply', needApply.value)
 
@@ -365,11 +368,11 @@ const saveCountry = async () => {
         } else {
             // 否则正常传输字段
             formData.append('applyRequire', JSON.stringify(selectedApplyRequire))
-            formData.append('nonScheduleTemplate', editCountryData.value.nonScheduleTemplate )
+            formData.append('nonScheduleTemplate', editCountryData.value.nonScheduleTemplate)
             formData.append('permitRules', editCountryData.value.permitRules)
-            formData.append('scheduleChangeFlightNumberTemplate', editCountryData.value.scheduleChangeFlightNumberTemplate )
+            formData.append('scheduleChangeFlightNumberTemplate', editCountryData.value.scheduleChangeFlightNumberTemplate)
             formData.append('scheduleChangeRouteTemplate', editCountryData.value.scheduleChangeRouteTemplate)
-            formData.append('scheduleTemplate', (editCountryData.value.scheduleTemplate ))
+            formData.append('scheduleTemplate', (editCountryData.value.scheduleTemplate))
         }
         for (let [key, value] of formData.entries()) {
             console.log(`${key}:`, value);
@@ -506,7 +509,7 @@ const previewFile = (file) => {
     currentFile.value = {
         ...toRaw(file),
         url: fullUrl,
-        source:'net'
+        source: 'net'
     }
     console.log('currentFile', currentFile)
     previewVisible.value = true
@@ -548,11 +551,12 @@ watch(() => editCountryData.value?.applyRequire, (newVal) => {
 }, { immediate: true })
 onMounted(async () => {
     try {
+        loading.show('正在加载飞越国家数据，请稍候...')
         const countryResponse = await getCountryRules();
         countryList.value = countryResponse.data
         filteredData.value = countryList.value
         console.log('countryResponse:', countryList.value);
-
+        loading.hide()
     } catch (error) {
         console.error('API error:', error);
     }

@@ -154,8 +154,12 @@
                                     </el-icon>
                                     {{ useAllAircraftTypesStatus ? '还原原机型申请' :
                                         '使用全机型申请' }}</el-button>
-                                <el-segmented v-model="useAircraftOption" :options="aircraftOptions"
-                                    @change="useChooseAircraft" size="large" />
+                                <div class="custom-style">
+
+                                    <el-segmented v-model="useAircraftOption" :options="aircraftOptions"
+                                        @change="useChooseAircraft" size="large" />
+                                </div>
+
 
 
 
@@ -290,7 +294,7 @@
 
                                                         <el-button @click="reMakeApply">{{ needMakeApplyDoc ? '关闭制作区' :
                                                             '展开制作区'
-                                                            }}</el-button>
+                                                        }}</el-button>
 
                                                         <div v-if="needMakeApplyDoc" class="applyDocWindow"
                                                             style="display: flex;flex-direction: row;">
@@ -410,7 +414,7 @@
                                                 <el-empty description="暂未获得批复" image-size="50" />
 
                                                 <el-button type="success" icon="Upload" @click="showPermissionMatch">
-                                                    上传飞越批复文件
+                                                    上传并匹配飞越批复文件
                                                 </el-button>
                                             </div>
                                             <div v-else>
@@ -458,7 +462,7 @@
                                                 </div>
                                             </div>
 
-                                            <permissionMatch :taskKey="viewData.taskKey"
+                                            <permissionMatch :taskKey="viewData.taskKey" :data="curCountryData"
                                                 v-model:visible="permissionMatchVisible"
                                                 @upload-success="refreshTaskList" />
                                         </div>
@@ -506,7 +510,9 @@ import Searcher from '../utils/searcher.vue'
 import permissionMatch from '../utils/permissionMatch.vue'
 import { beijingToUTC, formatTimeWithoutColon } from '../utils/timeTransfer.js';
 import overflyDataView from '../utils/overflyDataView.vue'
-
+import { useLoading } from '../plugins/loading'
+// 
+const loadingStatus = useLoading()
 const countryList = ref()
 const selectedTask = ref([])
 const taskListInServer = ref()
@@ -628,6 +634,8 @@ const handleBatchDelete = async () => {
 }
 const curCountryData = ref()
 const viewTask = async (key) => {
+    loadingStatus.show('正在加载任务信息，请稍候...')
+
     taskLoading.value = true
     showTask.value = true
     console.log('taskListInServer', taskListInServer)
@@ -676,6 +684,7 @@ const viewTask = async (key) => {
     needMakeApplyDoc.value = foundTask.applyData ? false : true
 
     taskLoading.value = false
+    loadingStatus.hide()
 }
 const refreshOverflyData = async (newData) => {
     // console.log('curCountryData', curCountryData.value)
@@ -1149,6 +1158,7 @@ onMounted(async () => {
     try {
         // const flightResponse = await getFlights();
         // await loadFlightData()
+        loadingStatus.show('正在加载任务列表，请稍候...')
         const taskResponse = await getTaskList();
         taskListInServer.value = taskResponse.data
         console.log('获取的taskListInServer', taskListInServer)
@@ -1156,10 +1166,11 @@ onMounted(async () => {
         const countryResponse = await getCountryRules()
         countryList.value = countryResponse.data
         taskListLoaded.value = true
-        console.log('taskListLoaded', taskListLoaded)
+        // console.log('taskListLoaded', taskListLoaded)
         const aircraftTypeResponse = await getAircraftType()
         aircraftType.value = aircraftTypeResponse.data
-        console.log('taskListLoaded', aircraftType)
+        // console.log('taskListLoaded', aircraftType)
+        loadingStatus.hide()
 
     } catch (error) {
         console.error('API error:', error);
@@ -1322,5 +1333,11 @@ watchEffect(() => {
 
 .el-tag {
     margin: 2px 4px;
+}
+
+.custom-style .el-segmented {
+    --el-segmented-item-selected-color: var(--el-text-color-primary);
+    --el-segmented-item-selected-bg-color: #ffd100;
+    --el-border-radius-base: 16px;
 }
 </style>

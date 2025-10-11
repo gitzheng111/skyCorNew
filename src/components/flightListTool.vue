@@ -20,7 +20,7 @@
             <!-- <template #first> -->
             <h3>所有航班({{ filteredFlights.length }}个航班)</h3>
             <el-table :data="filteredFlights" @selection-change="handleSelectionChange" @row-click="showClickRowDetail">
-                
+
                 <el-table-column type="selection" width="55" />
 
                 <el-table-column label="航季">
@@ -36,6 +36,16 @@
                 <el-table-column prop="flightNumber" label="航班号">
                     <template #default="{ row }">
                         <div>{{ row.flightNumber }}</div>
+                    </template>
+                </el-table-column>
+                <el-table-column label="航路可用醒">
+                    <template #default="{ row }">
+                        <div>
+                            <el-tag
+                                :type="row.allValid === 'all' ? 'success' : (row.allValid > 0 ? 'warning' : 'danger')">
+                                {{ row.allValid === 'all' ? '全部可用' : `${row.allValid}条可用` }}
+                            </el-tag>
+                        </div>
                     </template>
                 </el-table-column>
                 <el-table-column prop="departure" label="起飞机场">
@@ -73,21 +83,7 @@
                         <DaysShow :days="row.days" />
 
                     </template>
-                    <!-- <template #default="{ row }">
 
-                        <div class="days-container">
-                            <el-tag v-for="(day, index) in daysOfWeek" :key="index" :class="{
-                                'day-tag': true,
-                                'normal-tag': isDayInSchedule(row.days, index + 1),
-                                'disabled-tag': !isDayInSchedule(row.days, index + 1),
-                                'today-tag': isToday(index + 1)
-                            }" :style="isToday(index + 1) ? { border: '1px solid orange' } : {}">
-                                {{ day }}
-                            </el-tag>
-
-                        </div>
-
-                    </template> -->
 
                 </el-table-column>
                 <el-table-column label="机型">
@@ -113,13 +109,9 @@
                 </el-table-column>
 
                 <el-table-column fixed="right" label="Operations" min-width="120">
-                    <!-- <template #default="{ row }">
-                        <el-button link type="primary" size="small" @click="deleteFlight(row.flight_id)">
-                            删除
-                        </el-button>
-                    </template> -->
+
                     <template #default="{ row }">
-                        <el-button link type="primary" size="small" @click="editFlight(row)">
+                        <el-button type="primary" size="small" @click.stop="editFlight(row)">
                             编辑/修改
                         </el-button>
                     </template>
@@ -146,14 +138,24 @@
                     <el-divider>航路详情</el-divider>
                     <div v-if="clickFlight.matchingRoutes?.length">
                         <el-collapse>
-                            <el-collapse-item v-for="(route, index) in clickFlight.matchingRoutes" :key="index"
-                                :title="route.routeCode">
+                            <el-collapse-item v-for="(route, index) in clickFlight.matchingRoutes" :key="index">
+                                <template #title>
+                                    <div class="flex items-center justify-between w-full">
+                                        <span>{{ route.routeCode }}</span>
+                                        <el-tag v-if="route.isValid" type="success" size="small" effect="plain">
+                                            可使用
+                                        </el-tag>
+                                        <el-tag v-else-if="route.taskKeys?.length" type="warning" size="small"
+                                            effect="plain">
+                                            正在申请
+                                        </el-tag>
+                                        <el-tag v-else type="danger" size="small" effect="plain">
+                                            未申请
+                                        </el-tag>
+                                    </div>
+                                </template>
                                 <div>航路：{{ route.ATSroute }}</div>
-                                <div>状态：
-                                    <el-tag v-if="route.isValid" type="success">可使用</el-tag>
-                                    <el-tag v-else-if="route.taskKeys?.length" type="warning">正在申请</el-tag>
-                                    <el-tag v-else type="danger">未申请</el-tag>
-                                </div>
+
                                 <div>
                                     <el-segmented v-model="curCountryUnderRoute"
                                         :options="generateSegmentedOptions(route, clickFlight)"
@@ -837,7 +839,7 @@ function generateSegmentedOptions(route, row) {
     } else if (Array.isArray(route.overflyCountry)) {
         countryList = route.overflyCountry; // 保留完整对象，不要只取 country
     }
-
+    console.log('countryList', countryList)
     return countryList.map(countryObj => {
         const { country, needPermit, isPermit, applyStatus } = countryObj;
 
@@ -846,9 +848,9 @@ function generateSegmentedOptions(route, row) {
             label = `${country}（无需申请）`;
         } else if (needPermit == true && applyStatus.status == 'none') {
             label = `${country}（未申请）`;
-        } else if (needPermit == true && applyStatus.status == 'matched') {
+        } else if (needPermit == true && applyStatus.status == 'matched' && isPermit == false) {
             label = `${country}（正在申请）`;
-        } else if (needPermit == true && isPermit == true) {
+        } else if (needPermit == true && applyStatus.status == 'matched' && isPermit == true) {
             label = `${country}（已批复）`;
         }
 
