@@ -2,11 +2,18 @@
     <div>
         <!-- 搜索框 -->
         <Searcher mode="permission" :list="permission" @update:result="filteredData = $event" />
+        <div class="add-button-box">
+            <el-button type="primary" @click="addPermission">新增批复</el-button>
+            <el-button type="success" @click="editPermission">编辑</el-button>
+            <el-button type="danger" @click="deletePermission">删除</el-button>
 
+        </div>
 
 
         <!-- 搜索结果表格 -->
-        <el-table :data="filteredData" style="width: 100%" @row-click="showClickRowDetail">
+        <el-table :data="filteredData" style="width: 100%" @row-click="showClickRowDetail"
+            @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" />
             <el-table-column label="航季" prop="season"></el-table-column>
             <el-table-column label="国家" prop="country"></el-table-column>
             <el-table-column label="批复号" prop="permissionNumber">
@@ -54,11 +61,11 @@
 
                 <div>
                     <h4>国家: {{ clickPermit.country }}</h4>
-                    <p>批复号: {{ clickPermit.permissionNumber? clickPermit.permissionNumber:'无批复号' }}</p>
+                    <p>批复号: {{ clickPermit.permissionNumber ? clickPermit.permissionNumber : '无批复号' }}</p>
 
                     <!-- <p>文件名: {{ clickPermit.fileName }}</p>
                     <p>上传时间: {{ clickPermit.uploadTime }}</p> -->
-                    <fileView :file="currentFile" :loading="false" @click="previewFile(currentFile)"  />
+                    <fileView :file="currentFile" :loading="false" @click="previewFile(currentFile)" />
                 </div>
 
                 <div v-if="clickPermit.fileData">
@@ -112,12 +119,9 @@
             </div>
         </el-drawer>
         <permissionMatch v-model:visible="showAddPermitChoose" :taskKey="selectTaskData?.taskKey" :data="curCountryData"
-            @upload-success="refreshTaskList" />
-        <filePreview :file="currentFile" v-model:visible="previewVisible"  />
-        <div class="add-button-box">
-            <el-button type="primary" @click="addPermission" class="add-button">新增批复</el-button>
+            @upload-success="refreshTaskList" :isEditing="isEditing" :editData="editData" />
+        <filePreview :file="currentFile" v-model:visible="previewVisible" />
 
-        </div>
     </div>
 
 
@@ -171,7 +175,41 @@ const selectCountry = (country) => {
 }
 const clickPermit = ref()
 const drawerVisible = ref()
+const multipleSelection = ref()
+const handleSelectionChange = (val) => {
+    // console.log('val', val)
+    multipleSelection.value = val;
+    console.log('multipleSelection', multipleSelection.value)
+};
+const isEditing = ref(false)
+// const editData = ref([])
+const editData = ref({
+    curCountryData: {
+        flightList: [],
+        overflyDetails: [],
+        overflyCountry:''
+    },
+    
+    fileDataByCountry: {}
+})
+const editPermission = () => {
+    isEditing.value = true
+    showAddPermission.value=false
+    showAddPermitChoose.value = true
+    const country = multipleSelection.value[0].country
+    // console.log('country',country)/
+    editData.value.curCountryData.overflyCountry = country
+    editData.value.curCountryData.flightList = multipleSelection.value[0].relateData.applyFlight
+    editData.value.curCountryData.overflyDetails = multipleSelection.value[0].relateData.applyRoute
+    if (!editData.value.fileDataByCountry[country]) {
+        editData.value.fileDataByCountry[country] = {}
+    }
+    editData.value.fileDataByCountry[country].permitFlight = multipleSelection.value[0].fileData.permitFlight
+    editData.value.fileDataByCountry[country].permitRoute = multipleSelection.value[0].fileData.permitRoute
 
+    console.log('editData', editData)
+
+}
 const showClickRowDetail = (row) => {
     clickPermit.value = row
     drawerVisible.value = true
@@ -441,11 +479,16 @@ onMounted(async () => {
 .add-button-box {
     width: 100%;
     height: 100px;
-    position: absolute;
-    bottom: 5%;
-    display: flex;
+    /* position: absolute; */
+    /* bottom: 5%; */
+    /* display: flex;
     justify-content: center;
+    align-items: center; */
+    display: flex;
+    justify-content: left;
     align-items: center;
+    height: 50px;
+    margin-left: 50px;
 }
 
 .add-button {

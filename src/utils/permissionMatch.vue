@@ -1,6 +1,6 @@
 <template>
     <el-dialog v-model="windowVisible" title="飞越批复匹配" width="95%">
-        <div v-if="!curTaskKey">
+        <div v-if="!curTaskKey && !isEditing">
             <h3>任务列表</h3>
             <el-scrollbar height="300px" class="task-list">
                 <el-card v-for="task in taskList" :key="task.taskKey" class="task-item" shadow="hover"
@@ -219,6 +219,8 @@ const props = defineProps({
     taskKey: String,
     visible: Boolean,
     data: Array,
+    editData: Array,
+    isEditing: Boolean,
 })
 const activeTab = ref('added')
 const docVisible = ref(false)
@@ -234,32 +236,102 @@ function transformFlightNumber(flightNumber) {
     const digits = flightNumber.match(/\d+$/);
     return digits ? `CXA${digits[0]}` : `CXA`;
 }
+const isEditing = ref(false)
 
 watch(() => props.visible, val => (windowVisible.value = val))
-watch(
-  () => props.data,
-  (val) => {
-    console.log('val', val)
+// watch(
+//   () => props.data,
+//   (val) => {
+//     console.log('val', val)
 
-    // 首先判断 val 是否存在，并且 flightList 是否为数组
-    if (val && Array.isArray(val.flightList)) {
-      curCountryData.value = val
-      console.log('curCountryData updated', curCountryData.value)
+//     // 首先判断 val 是否存在，并且 flightList 是否为数组
+//     if (val && Array.isArray(val.flightList)) {
+//       curCountryData.value = val
+//       console.log('curCountryData updated', curCountryData.value)
+//     } else {
+//       console.warn('Invalid or empty flightList:', val?.flightList)
+//       // 当 data 为空时，可以清空当前数据，避免保留旧值
+//       curCountryData.value = { flightList: [] }
+//     }
+//   },
+//   { immediate: true }
+// )
+watch(
+  () => [props.isEditing, props.editData, props.data],
+  ([newIsEditing, newEditData, newData]) => {
+    // 统一转换编辑状态为布尔值
+    const isEditMode = newIsEditing
+    isEditing.value = isEditMode
+    console.log('isEditMode',isEditMode,'newEditData',newEditData,'newData',newData)
+    if (isEditMode) {
+      // 编辑模式
+
+      if (newEditData && Array.isArray(newEditData.curCountryData.flightList)) {
+        curCountryData.value = newEditData.curCountryData || {}
+        fileDataByCountry.value = newEditData.fileDataByCountry || {}
+        console.log('[Editing Mode] curCountryData updated:', curCountryData.value)
+      } else {
+        console.warn('[Editing Mode] Invalid or empty flightList:', newEditData?.flightList)
+        curCountryData.value = { flightList: [] }
+        fileDataByCountry.value = {}
+      }
     } else {
-      console.warn('Invalid or empty flightList:', val?.flightList)
-      // 当 data 为空时，可以清空当前数据，避免保留旧值
-      curCountryData.value = { flightList: [] }
+      // 查看模式
+      if (newData && Array.isArray(newData.flightList)) {
+        curCountryData.value = newData
+        console.log('[View Mode] curCountryData updated:', curCountryData.value)
+      } else {
+        console.warn('[View Mode] Invalid or empty flightList:', newData?.flightList)
+        curCountryData.value = { flightList: [] }
+      }
     }
+
+    // 调试输出
+    console.log('isEditing:', isEditMode)
+    console.log('editData:', newEditData)
+    console.log('data:', newData)
   },
-  { immediate: true }
+  { immediate: true, deep: true }
 )
+// watch(
+//     () => [props.isEditing, props.editData, props.data],
+//     (val1, val2, val3) => {
+//         if (val1 == 'true') {
+//             isEditing.value = val1
+//             // 首先判断 val 是否存在，并且 flightList 是否为数组
+//             if (val2 && Array.isArray(val2.flightList)) {
+//                 curCountryData.value = val2.curCountryData
+//                 fileDataByCountry.value = val2.fileDataByCountry
+//                 console.log('curCountryData updated', curCountryData.value)
+//             } else {
+//                 console.warn('Invalid or empty flightList:', val2?.flightList)
+//                 // 当 data 为空时，可以清空当前数据，避免保留旧值
+//                 curCountryData.value = { flightList: [] }
+//             }
+//         } else {
+//             if (val3 && Array.isArray(val3.flightList)) {
+//                 curCountryData.value = val3
+//                 console.log('curCountryData updated', curCountryData.value)
+//             } else {
+//                 console.warn('Invalid or empty flightList:', val3?.flightList)
+//                 // 当 data 为空时，可以清空当前数据，避免保留旧值
+//                 curCountryData.value = { flightList: [] }
+//             }
+//         }
+//         console.log('val', val1)
+
+//         console.log('val', val2)
+
+//     },
+//     { immediate: true }
+// )
 // watch(
 //     () => props.data,
 //     (val) => {
 
 //         console.log('val', val)
 //         if (val && Array.isArray(val?.flightList)) {
-          
+
 //             curCountryData.value = val;
 //             console.log('curCountryData updated', curCountryData.value);
 //         } else {
@@ -371,11 +443,11 @@ function isValidATSroute(value) {
 
 }
 
-function isValidEntryPoint(value){
+function isValidEntryPoint(value) {
     return /^(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/.test(value)
 }
 
-function isValidExitPoint(value){
+function isValidExitPoint(value) {
     return /^(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/.test(value)
 }
 // 文件选择
@@ -485,15 +557,15 @@ function handleFileChange(country, fileEvt) {
                             newKey = "sector";
                         } else if (keyMap["ATSroute"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidATSroute(value)) {
                             newKey = "ATSroute";
-                        }else if (keyMap["entryPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidEntryPoint(value)) {
+                        } else if (keyMap["entryPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidEntryPoint(value)) {
                             newKey = "entryPoint";
-                        }else if (keyMap["exitPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidExitPoint(value)) {
+                        } else if (keyMap["exitPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidExitPoint(value)) {
                             newKey = "exitPoint";
                         }
 
                         // 更新 row 对象的键值
                         updatedRow[newKey] = value;
-                        console.log('updatedRow',updatedRow)
+                        console.log('updatedRow', updatedRow)
                     });
                     return updatedRow;
                 });
@@ -771,13 +843,15 @@ async function savePermissionData() {
     overflow-y: scroll;
     margin: 5px;
 }
+
 .inner-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 13px;
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
 }
+
 .inner-table td {
-  border-bottom: 1px solid #ddd;
-  padding: 4px 8px;
+    border-bottom: 1px solid #ddd;
+    padding: 4px 8px;
 }
 </style>
