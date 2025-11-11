@@ -4,7 +4,7 @@
         <Searcher mode="task" :list="taskListInServer" @update:result="filteredTasks = $event" />
 
         <div class="add-button-box">
-            <el-button type="primary" @click="addTask" class="add-button">新增任务</el-button>
+            <!-- <el-button type="primary" @click="addTask" class="add-button">新增任务</el-button> -->
             <el-button type="danger" :disabled="selectedTask.length === 0" @click="handleBatchDelete">
                 批量删除
             </el-button>
@@ -13,23 +13,23 @@
         <!-- 搜索结果表格 -->
         <el-table :data="filteredTasks" style="width: 100%" @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="55" />
-            <el-table-column label="任务id" prop="id"></el-table-column>
-            <el-table-column label="任务key" prop="taskName"></el-table-column>
+            <el-table-column label="申请任务ID" prop="id"></el-table-column>
+            <el-table-column label="申请任务名" prop="taskName"></el-table-column>
 
-            <el-table-column label="任务key" prop="taskKey"></el-table-column>
+            <el-table-column label="申请任务key" prop="taskKey"></el-table-column>
             <el-table-column label="任务内容">
                 <template #default="{ row }">
                     <div v-if="Array.isArray(row.data)">
                         <div v-for="(item, idx) in row.data" :key="idx">
-                            <div v-if="Array.isArray(item.flightList) && Array.isArray(item.routeList)">
+                            <div v-if="Array.isArray(item.flightList)">
                                 <el-tag v-for="(flight, index) in item.flightList" :key="index" class="mr-1 mb-1"
                                     type="info">
-                                    {{ flight.flightNumber }}
+                                    {{ flight.flightNumber }}/{{ item.overflyCountry }}
                                 </el-tag>
-                                <el-tag v-for="(route, index) in item.routeList" :key="index" class="mr-1 mb-1"
+                                <!-- <el-tag v-for="(route, index) in item.routeList" :key="index" class="mr-1 mb-1"
                                     type="info">
                                     {{ route.routeCode }}
-                                </el-tag>
+                                </el-tag> -->
                             </div>
                         </div>
                     </div>
@@ -42,10 +42,10 @@
 
             </el-table-column>
             <el-table-column label="最新修改日期" prop="updateTime"></el-table-column>
-            <el-table-column fixed="right" label="Operations" min-width="120">
+            <el-table-column fixed="right" label="操作" min-width="120">
                 <template #default="{ row }">
-                    <el-button link type="primary" @click="viewTask(row.taskKey)">
-                        查看
+                    <el-button type="primary" @click="viewTask(row.taskKey)">
+                        进入任务
                     </el-button>
                 </template>
             </el-table-column>
@@ -119,24 +119,27 @@
                         <template #label>
                             <span>
                                 {{ item.overflyCountry || '未知国家' }}
-
+                                <!-- tab的标签 -->
                                 <el-tag v-if="!viewData.applyData?.[item.overflyCountry]" type="danger" size="small"
                                     effect="plain">未制作申请件</el-tag>
                                 <el-tag
-                                    v-if="viewData.applyData?.[item.overflyCountry] && !viewData.applyData?.[item.overflyCountry]?.checkTime"
+                                    v-if="viewData.applyData?.[item.overflyCountry]?.uploadTime && !viewData.applyData?.[item.overflyCountry]?.checkTime"
                                     type="warning" size="small" effect="plain">已制作申请件未校核</el-tag>
                                 <el-tag
-                                    v-if="viewData.applyData?.[item.overflyCountry]?.checkTime && !viewData.applyData?.[item.overflyCountry].applyTime"
+                                    v-if="viewData.applyData?.[item.overflyCountry]?.checkTime && !viewData.applyData?.[item.overflyCountry]?.sendTime"
                                     type="warning" size="small" effect="plain">已校核未申请</el-tag>
                                 <el-tag
-                                    v-if="viewData.applyData?.[item.overflyCountry]?.applyTime && !viewData.permitData?.[item.overflyCountry]"
+                                    v-if="viewData.applyData?.[item.overflyCountry]?.sendTime && !viewData?.permissionData?.[item.overflyCountry]"
                                     type="warning" size="small" effect="plain">已申请未批复</el-tag>
-                                <el-tag v-if="viewData?.permitData" type="success" size="small"
-                                    effect="plain">已批复</el-tag>
+                                <el-tag
+                                    v-if="viewData?.permissionData?.[item.overflyCountry] && viewData.applyData?.[item.overflyCountry]?.sendTime"
+                                    type="success" size="small" effect="plain">已批复</el-tag>
                             </span>
                         </template>
                         <div>
                             <el-divider>航班列表<el-tag>{{ item.flightList.length }}条</el-tag></el-divider>
+                            <!-- <el-segmented v-model="selectAttribution" :options="attributionOption"
+                                        @change="changeAttribution" size="large"></el-segmented> -->
                             <div>
                                 <el-button type="primary" @click="applyFullCycle" round :plain="!useFullCycleStatus">
                                     <el-icon>
@@ -294,7 +297,7 @@
 
                                                         <el-button @click="reMakeApply">{{ needMakeApplyDoc ? '关闭制作区' :
                                                             '展开制作区'
-                                                        }}</el-button>
+                                                            }}</el-button>
 
                                                         <div v-if="needMakeApplyDoc" class="applyDocWindow"
                                                             style="display: flex;flex-direction: row;">
@@ -361,22 +364,28 @@
                                                         </el-button>
                                                     </el-timeline-item>
                                                     <el-timeline-item
-                                                        v-bind="getTimelineNode(!!viewData?.applyData?.sendTime, currentStep === 'send')"
-                                                        :class="getTimelineNode(!!viewData?.applyData?.sendTime, currentStep === 'send').class"
+                                                        v-bind="getTimelineNode(!!viewData?.applyData?.[curCountryData.overflyCountry]?.sendTime, currentStep === 'send')"
+                                                        :class="getTimelineNode(!!viewData?.applyData?.[curCountryData.overflyCountry]?.sendTime, currentStep === 'send').class"
                                                         :timestamp="viewData?.applyData?.sendTime">
                                                         <div>
                                                             <div>申请件发送阶段</div>
                                                             <el-tag effect="dark"
-                                                                :type="viewData?.applyData?.sendTime ? 'success' : 'danger'">
-                                                                当前状态：{{ viewData?.applyData?.sendTime ? '已发送' : '未发送' }}
-                                                                <el-text v-if="viewData?.applyData?.sendTime">
-                                                                    发送时间：{{ formatTime(viewData?.applyData?.sendTime) }}
-                                                                </el-text>
-                                                            </el-tag>
+                                                                :type="viewData?.applyData?.[curCountryData.overflyCountry]?.sendTime ? 'success' : 'danger'">
+                                                                当前状态：{{
+                                                                    viewData?.applyData?.[curCountryData.overflyCountry]?.sendTime
+                                                                        ?
+                                                                        '已发送' : '未发送' }}
 
+                                                            </el-tag>
+                                                            <el-text v-if="viewData?.applyData?.sendTime">
+                                                                发送时间：{{
+                                                                    formatTime(viewData?.applyData?.[curCountryData.overflyCountry]?.sendTime)
+                                                                }}
+                                                            </el-text>
                                                         </div>
-                                                        <el-button v-if="!viewData?.applyData?.sendTime" type="primary"
-                                                            icon="Finished" plain class="mt-3"
+                                                        <el-button
+                                                            v-if="!viewData?.applyData?.[curCountryData.overflyCountry]?.sendTime"
+                                                            type="primary" icon="Finished" plain class="mt-3"
                                                             @click="sendApply(viewData)">
                                                             点击发送申请
                                                         </el-button>
@@ -405,12 +414,12 @@
                                                 <el-icon class="mr-2">
                                                     <DocumentChecked />
                                                 </el-icon>
-                                                <span>批复文件</span>
+                                                <span>{{curCountry}}批复文件</span>
                                             </div>
                                         </template>
 
                                         <div class="flex flex-col gap-4">
-                                            <div v-if="!viewData.permissionData">
+                                            <div v-if="!viewData?.permissionData?.[curCountry]">
                                                 <el-empty description="暂未获得批复" image-size="50" />
 
                                                 <el-button type="success" icon="Upload" @click="showPermissionMatch">
@@ -427,35 +436,53 @@
 
                                                     <!-- 显示关联航班 -->
                                                     <div class="mb-2">
-                                                        <div class="font-semibold">关联航班：</div>
+                                                        <div style="text-align: left;font-weight: bold;"
+                                                            class="font-semibold">关联航班</div>
                                                         <el-table :data="data.relateData.applyFlight || []"
                                                             style="width: 100%; margin-top: 4px" height="150"
                                                             size="small">
                                                             <el-table-column prop="flightNumber" label="航班号" />
+                                                            <el-table-column prop="departure" label="起飞机场" />
+                                                            <el-table-column prop="departureTime" label="起飞时间" />
+
+                                                            <el-table-column prop="arrival" label="目的机场" />
+                                                            <el-table-column prop="arrivalTime" label="落地时间" />
+
                                                         </el-table>
                                                     </div>
 
                                                     <!-- 显示批复内容（航线） -->
                                                     <div class="mb-2">
-                                                        <div class="font-semibold">批复内容：</div>
+                                                        <div style="text-align: left;font-weight: bold"
+                                                            class="font-semibold">批复内容</div>
+                                                            
                                                         <el-table :data="data.fileData.permitFlight || []"
                                                             style="width: 100%; margin-top: 4px" height="150"
                                                             size="small">
                                                             <el-table-column prop="flightNumber" label="航班号" />
                                                             <el-table-column prop="departure" label="起飞机场" />
+                                                            <el-table-column prop="departureTime" label="起飞时间" />
+
                                                             <el-table-column prop="arrival" label="目的机场" />
+                                                            <el-table-column prop="arrivalTime" label="落地时间" />
+
                                                         </el-table>
                                                         <el-table :data="data.fileData.permitRoute || []"
                                                             style="width: 100%; margin-top: 4px" height="150"
                                                             size="small">
-                                                            <el-table-column prop="ATSroute" label="航线" />
+                                                            <el-table-column prop="sector" label="航段" />
+
+                                                            <el-table-column prop="ATSroute" label="航路走向" />
                                                             <el-table-column prop="entryPoint" label="入境点" />
                                                             <el-table-column prop="exitPoint" label="出境点" />
                                                         </el-table>
                                                     </div>
 
                                                     <!-- 查看文件按钮 -->
-                                                    <el-button type="info" icon="View" plain
+                                                    <el-button type="success" icon="Edit" @click="editPermission(data)">
+                                                        编辑
+                                                    </el-button>
+                                                    <el-button :disabled="!data.url" type="info" icon="View" plain
                                                         @click="viewPermitFile(data.fileName, data.url)">
                                                         点击查看批复文件
                                                     </el-button>
@@ -463,8 +490,8 @@
                                             </div>
 
                                             <permissionMatch :taskKey="viewData.taskKey" :data="curCountryData"
-                                                v-model:visible="permissionMatchVisible"
-                                                @upload-success="refreshTaskList" />
+                                                v-model:visible="permissionMatchVisible" :editData="editData"
+                                                :isEditing="isEditingPermission" @upload-success="refreshTaskList" />
                                         </div>
                                     </el-card>
                                 </el-col>
@@ -489,7 +516,7 @@
 </template>
 <script setup>
 // import { taskListInServer } from '../api';
-import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList, getAircraftType } from '../api.js';
+import { getFlights, getRoutes, getPermission, baseURL,attributionOptionFromAPI, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList, getAircraftType } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw, watchEffect } from 'vue'
 import { getLastSunday, calculateSeasons } from '../utils/seasonCalculator'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -529,32 +556,44 @@ const needMakeApplyDoc = ref(true)
 const taskLoading = ref(false)
 const filteredTasks = ref([])
 
+
+const attributionOption = ref(attributionOptionFromAPI)
+const selectAttribution = ref('schedule')
+const changeAttribution = (val)=>{
+    selectAttribution.value = val
+    console.log('变化后的selectAttribution',selectAttribution)
+}
+// watch(() => attributionOptionFromAPI, (val) => {
+    
+//     attributionOption.value= val.value || ''
+//     console.log('attributionOption',attributionOption)
+// })
 const route = useRoute()
 const steps = [
     { key: 'uploadTime', label: '申请件制作' },
     { key: 'checkTime', label: '双校核' },
     { key: 'sendTime', label: '发送申请' }
 ]
-const stepStatus = computed(() =>
-    steps.map((step, index) => {
-        const done = !!viewData.value.applyData?.[step.key]
-        const isCurrent =
-            !done &&
-            (index === 0 || !!viewData.value.applyData?.[steps[index - 1].key])
+// const stepStatus = computed(() =>
+//     steps.map((step, index) => {
+//         const done = !!viewData.value.applyData?.[step.key]
+//         const isCurrent =
+//             !done &&
+//             (index === 0 || !!viewData.value.applyData?.[steps[index - 1].key])
 
-        return {
-            ...step,
-            done,
-            isCurrent,
-            icon: done ? CircleCheckFilled : MoreFilled,
-            color: done
-                ? 'var(--el-color-success)'
-                : isCurrent
-                    ? 'var(--el-color-danger)'
-                    : '#dcdfe6'
-        }
-    })
-)
+//         return {
+//             ...step,
+//             done,
+//             isCurrent,
+//             icon: done ? CircleCheckFilled : MoreFilled,
+//             color: done
+//                 ? 'var(--el-color-success)'
+//                 : isCurrent
+//                     ? 'var(--el-color-danger)'
+//                     : '#dcdfe6'
+//         }
+//     })
+// )
 
 const currentStep = computed(() => {
     if (!viewData?.value?.applyData) return 'upload'
@@ -727,9 +766,18 @@ function dedupeViewData(viewData) {
                 overflyDetails: dedupeOverflyDetails(item.overflyDetails)
             };
         }
+
         return item;
     });
-
+    if (Array.isArray(viewData.permissionData)) {
+        const obj = {}
+        viewData.permissionData.forEach(item => {
+            if (item.country) {
+                obj[item.country] = item
+            }
+        })
+        viewData.permissionData = obj
+    }
     return { ...viewData, data: newData };
 }
 const extractStatus = ref(false)
@@ -970,6 +1018,39 @@ const previewFile = (file) => {
     console.log('currentFile', currentFile)
     previewVisible.value = true
 }
+const isEditingPermission = ref(false)
+const editData = ref()
+const editPermission = (data) => {
+    isEditingPermission.value = true
+    permissionMatchVisible.value = true
+    console.log('curCountryData', curCountryData)
+    console.log('输入编辑的数据', data)
+    console.log('输入编辑的数据', viewData.value.taskKey)
+
+    // showAddPermitChoose.value = true
+    // const country = multipleSelection.value[0].country
+    // console.log('country',country)/
+    editData.value = {
+        ...data,
+        taskKey: viewData.value.taskKey
+    }
+    // editData.value.fileName = multipleSelection.value[0].fileName
+    // editData.value.url = multipleSelection.value[0].url
+    // editData.value.permissionNumber = multipleSelection.value[0].permissionNumber
+    // editData.value.permissionId = multipleSelection.value[0].id
+
+    // editData.value.taskKey = multipleSelection.value[0].taskKey
+    // editData.value.curCountryData.flightList = multipleSelection.value[0].relateData.applyFlight
+    // editData.value.curCountryData.overflyDetails = multipleSelection.value[0].relateData.applyRoute
+    // if (!editData.value.fileDataByCountry[country]) {
+    //     editData.value.fileDataByCountry[country] = {}
+    // }
+    // editData.value.fileDataByCountry[country].permitFlight = multipleSelection.value[0].fileData.permitFlight
+    // editData.value.fileDataByCountry[country].permitRoute = multipleSelection.value[0].fileData.permitRoute
+
+    // console.log('editData', editData)
+
+}
 
 const viewPermitFile = (name, url) => {
     currentFile.value = null
@@ -1002,10 +1083,13 @@ const handleUploadSuccess = (res, key) => {
 const loadingTask = ref(false)
 const handleApplyClose = async () => {
     loadingTask.value = true;
+    loadingStatus.show('更新任务数据')
     await refreshTaskList();
+    loadingStatus.hide()
+    // loadingTask.value = false;
 
-    loadingTask.value = false;
-    ElMessage.success('任务已更新');
+
+    // ElMessage.success('任务已更新');
 };
 
 const refreshTaskList = async () => {
@@ -1050,7 +1134,9 @@ const checkApplyData = async (task) => {
         const res = await updateTaskList(formData);
         if (res.data.success) {
             ElMessage.success('已校对');
-            refreshTaskList()
+            loadingStatus.show('更新任务数据')
+            await refreshTaskList();
+            loadingStatus.hide()
         }
     } catch (err) {
         console.error('检查失败:', err);
@@ -1061,18 +1147,22 @@ const checkApplyData = async (task) => {
 const sendApply = async (task) => {
     if (!task || !task.id || !task.taskKey || !task.applyData) return;
     const applyData = { ...task.applyData };
-    applyData.sendTime = new Date().toISOString(); // 添加检查时间
-
+    // applyData.sendTime = new Date().toISOString(); // 添加检查时间
+    const temCountry = curCountryData.value.overflyCountry
+    applyData[temCountry].sendTime = new Date().toISOString();
     const formData = new FormData();
     formData.append('id', task.id);
     formData.append('taskKey', task.taskKey);
+    formData.append('country', temCountry);
     formData.append('applyData', JSON.stringify(applyData)); // 包含 checkTime 的 applyData
-
+    formData.append('action', 'updateApplyData');
     try {
         const res = await updateTaskList(formData);
         if (res.data.success) {
             ElMessage.success('已发送申请件');
-            refreshTaskList()
+            loadingStatus.show('更新任务数据')
+            await refreshTaskList();
+            loadingStatus.hide()
         }
     } catch (err) {
         console.error('检查失败:', err);
@@ -1161,7 +1251,7 @@ onMounted(async () => {
         loadingStatus.show('正在加载任务列表，请稍候...')
         const taskResponse = await getTaskList();
         taskListInServer.value = taskResponse.data
-        console.log('获取的taskListInServer', taskListInServer)
+        console.log('获取原始的taskListInServer', taskListInServer)
         filteredTasks.value = taskListInServer.value
         const countryResponse = await getCountryRules()
         countryList.value = countryResponse.data

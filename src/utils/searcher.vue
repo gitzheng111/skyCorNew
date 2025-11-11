@@ -6,7 +6,7 @@
           <template v-if="field.prop === 'season'">
             <SeasonSelect v-model="searchForm[field.prop]" />
           </template>
-          <template v-else-if="field.prop === 'departure' || field.prop === 'arrival'">
+          <template v-else-if="field.prop === 'departure' || field.prop === 'arrival'|| field.prop === 'routeCode'">
             <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable
               @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
 
@@ -34,7 +34,9 @@
 import { reactive, computed, watch } from 'vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
 import { seasonCalculate, currentSeasonData } from '../utils/season.js'
+import { useSeasonData } from '../components/useSeasonUtils'
 
+const { todaySeason} = useSeasonData()
 const props = defineProps({
   mode: { type: String, required: true }, // flight / route / permission / task
   list: { type: Array, required: true }
@@ -56,7 +58,7 @@ const fieldMap = {
     { label: '航季', prop: 'season' },
     { label: '起飞机场', prop: 'departure' },
     { label: '目的机场', prop: 'arrival' },
-    { label: '起飞-到达', prop: 'sector' },
+    // { label: '起飞-到达', prop: 'sector' },
     { label: '航路代码', prop: 'routeCode' },
     { label: '飞越国家', prop: 'overflyCountry' }
   ],
@@ -75,6 +77,12 @@ const fieldMap = {
   country: [
     { label: '国家', prop: 'country' },
   ]
+  ,
+  overflyData: [
+  { label: '航季', prop: 'season' },
+    { label: '国家', prop: 'country' },
+    // { label: '航季', prop: 'season' },
+  ]
 }
 
 const searchFields = computed(() => fieldMap[props.mode] || [])
@@ -85,6 +93,10 @@ watch(
   searchFields,
   () => {
     searchFields.value.forEach(f => (searchForm[f.prop] = ''))
+      if(todaySeason){
+        console.log('todaySeason',todaySeason)
+        searchForm['season']=todaySeason.value.en
+      }
   },
   { immediate: true }
 )
@@ -128,7 +140,7 @@ function normalizeFlightNumber(val) {
 function handleSearch() {
   // console.log('props', props.list)
   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
-
+  console.log('props.list',props.list)
   const filtered = props.list.filter(item => {
     console.log('props.list', props.list)
     return searchFields.value.every(f => {
@@ -158,27 +170,40 @@ function handleSearch() {
           .split(/[\/,，\s]+/)
           .map(v => v.trim())
           .filter(Boolean)
-
+        console.log('keywords', keywords)
         if (keywords.length === 0) return true
 
         // 确保有 matchingRoutes
-        if (!Array.isArray(item.matchingRoutes)) return false
+
 
         // 遍历所有 matchingRoutes
-        return item.matchingRoutes.some(route => {
-          if (!Array.isArray(route.overflyCountry)) return false
+        if (props.mode == 'route') {
+          return item.overflyCountry.some(c => {
+            const name = (c?.country || '').toUpperCase()
+            return keywords.some(keyword => name.includes(keyword))
+          })
+        }
+        if (props.mode == 'flightNumber') {
+          if (!Array.isArray(item.matchingRoutes)) return false
+          return item.matchingRoutes.some(route => {
+            if (!Array.isArray(route.overflyCountry)) return false
 
-          // 检查 route 内每个国家
-          return keywords.some(keyword =>
-            route.overflyCountry.some(c => {
-              const name = (c?.country || '').toUpperCase()
-              return name.includes(keyword)
-            })
-          )
-        })
+            // 检查 route 内每个国家
+            return keywords.some(keyword =>
+              route.overflyCountry.some(c => {
+                const name = (c?.country || '').toUpperCase()
+                return name.includes(keyword)
+              })
+            )
+          })
+        }
+
+      }if (props.mode == 'overflyData' && f.prop === 'country') {
+        return item.fileData.permitFlight.find(i => i.flightNumber == normalizeFlightNumber(val))
       }
-      if(props.mode == 'permission'&&f.prop === 'flightNumber'){
-        return item.fileData.permitFlight.find(i=>i.flightNumber == normalizeFlightNumber(val))
+
+      if (props.mode == 'permission' && f.prop === 'flightNumber') {
+        return item.find(i => i.country ==val)
       }
       //  普通字符串匹配逻辑
       // const itemVal = Array.isArray(item[f.prop])

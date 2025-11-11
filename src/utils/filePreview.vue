@@ -99,11 +99,16 @@ watch(
         } else {
 
             // console.log('读取本地file', file)
-
-            previewType.value = file.type
+            console.log('读取本地文档',file)
+            const ext = file.name?.split('.').pop().toLowerCase() || ''
+            previewType.value = ext
             loading.value = true
             try {
-                previewContent.value = file.URL
+                const localFile = file.file instanceof File ? file.file : file
+
+                const blobUrl = URL.createObjectURL(localFile)
+                previewContent.value = blobUrl
+                // previewContent.value = file.URL
                 // console.log('previewContent',previewContent.value)
             } catch (e) {
                 console.error('预览失败', e)

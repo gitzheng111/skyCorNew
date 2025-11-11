@@ -12,13 +12,18 @@
       </template>
       <template #default>
         <el-row class="file-card-content items-center">
-          <el-col :span="4" class="fileIcon">
+          <el-col :span="4">
+            <div class="fileIcon" :style="fileStyle">
+              <span class="fileLetter">{{ fileLetter }}</span>
+            </div>
+          </el-col>
+          <!-- <el-col :span="4" class="fileIcon">
             <div style="">
               <el-icon size="40" color="white">
                 <Document />
               </el-icon>
             </div>
-          </el-col>
+          </el-col> -->
           <el-col :span="20">
             <div class="fileTitle">
               <el-text tag="b">文件名：{{ decodeURIComponent(props.file?.name) || '未命名文件' }}</el-text>
@@ -38,12 +43,14 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { Document } from '@element-plus/icons-vue'
 import { ElSkeleton, ElSkeletonItem } from 'element-plus'
 import { formatTime } from '../utils/tool.js'
 import { fixEncoding } from '../utils/fileNameEncode.js'
+// import { } from '@element-plus/icons-vue'
 
+const ext = ref()
 const props = defineProps({
   file: {
     type: Object,
@@ -66,6 +73,31 @@ const timeKey = computed(() => {
   if (props.file?.updateTime) return 'updateTime'
   return 'null'
 })
+const fileStyle = ref({ backgroundColor: '#0088b5' })
+const fileIcon = ref(Document)
+const fileLetter = ref('F') // 默认 File
+
+watch(() => props.file, (val) => {
+  console.log('val', val)
+
+  const fileName = val.name
+  const ext = fileName.split('.').pop().toLowerCase()
+  console.log('ext', ext)
+  const styleMap = {
+    pdf: { color: '#e74c3c', letter: 'P' },
+      doc: { color: '#2a5699', letter: 'W' },
+      docx: { color: '#2a5699', letter: 'W' },
+      xls: { color: '#1d6f42', letter: 'E' },
+      xlsx: { color: '#1d6f42', letter: 'E' },
+      txt: { color: '#7f8c8d', letter: 'T' },
+      default: { color: '#0088b5', letter: 'F' },
+  }
+  const config = styleMap[ext] || styleMap.default
+  fileLetter.value = config.letter
+  fileStyle.value = { backgroundColor: config.color }
+  // fileIcon.value = config.icon
+  // console.log('flight', flight.value)
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -76,6 +108,7 @@ const timeKey = computed(() => {
   background-color: white;
   transition: box-shadow 0.3s ease;
   cursor: pointer;
+  margin: 5px 0;
 }
 
 .file-card:hover {
@@ -85,13 +118,18 @@ const timeKey = computed(() => {
 .fileIcon {
   width: 60px;
   height: 60px;
-  background-color: rgb(0, 136, 181);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.3s;
 }
-
+.fileLetter {
+  font-size: 28px;
+  font-weight: bold;
+  color: white;
+  font-family: 'Segoe UI', sans-serif;
+}
 .fileTitle {
   width: 95%;
   display: flex;

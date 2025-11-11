@@ -1,6 +1,16 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router'; // 修复1：必须导入 useRoute
+import {
+  Check,
+  Delete,
+  Edit,
+  Message,
+  Search,
+  Star,
+} from '@element-plus/icons-vue'
+// import { useRouter } from 'vue-router'
+// const router = useRouter()
 
 // import mammoth from 'mammoth'; nnp
 const router = useRouter();
@@ -8,6 +18,9 @@ const route = useRoute(); // 修复2：获取当前路由对象
 const activeIndex = ref('1');
 
 // 修复3：正确监听路由路径变化
+const navToInfoCenter = ()=>{
+  router.push({ name: 'infoCenter', query: {  } })
+}
 
 const handleSelect = (key) => {
   switch (key) {
@@ -107,5 +120,26 @@ watch(
       <el-menu-item index="4-2">机型数据</el-menu-item>
 
     </el-sub-menu>
+    <div class="button-row">
+      <el-button :icon="Message" size="large" circle @click="navToInfoCenter" />
+    </div>
+
   </el-menu>
+
+
 </template>
+<!-- <script setup>
+
+</script> -->
+<style lang="scss">
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  // justify-content: right;
+  position: relative;
+  left: 50vw;
+
+}
+</style>

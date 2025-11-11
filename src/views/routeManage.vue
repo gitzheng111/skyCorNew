@@ -57,9 +57,10 @@
             </el-table-column>
 
         </el-table>
-        <add-route-tool v-model:showAddRoute="showAddRoute" :isEditing="isEditing" :selectedRoutes="selectedRoutes"
-            :countryData="countryData" @submit="handleSubmitRoutes" :uploading="uploading" :editData="editData" :filteredData="filteredData"/>
-       
+        <AddRouteTool v-model:showAddRoute="showAddRoute" :isEditing="isEditing" :selectedRoutes="selectedRoutes"
+            :countryData="countryData" @submit="handleSubmitRoutes" :uploading="uploading" :editData="editData"
+            :filteredData="filteredData" />
+
 
 
     </div>
@@ -144,8 +145,8 @@ const fieldLabelMap = {
     speed: "速度",
     season: "航季",
     sector: "航段",
-    altEntryPonit:"备用入境点",
-    altExitPonit:"备用出境点"
+    altEntryPonit: "备用入境点",
+    altExitPonit: "备用出境点"
 };
 
 // 取出有效字段（只保留有值的列）
@@ -225,10 +226,58 @@ const createFilterCountry = (queryString) => {
 const removeRow = (index) => {
     addRouteForms.value.splice(index, 1)
 }
-const getOverflyCountryNames = (overflyCountry) => {
-    if (!overflyCountry) return ''
-    return overflyCountry.map(item => item.country).join(', ')
+
+function safeJSONParse(input, maxDepth = 5) {
+  let data = input;
+  let depth = 0;
+
+  while (typeof data === 'string' && depth < maxDepth) {
+    try {
+      data = JSON.parse(data);
+      depth++;
+    } catch {
+      break;
+    }
+  }
+  if(depth>=1){
+    console.log('depth',depth,'data',data)
+
+  }
+  return data;
 }
+const getOverflyCountryNames = (overflyCountry) => {
+  if (!overflyCountry) return '';
+
+  console.log('类型', typeof overflyCountry, 'overflyCountry', overflyCountry);
+
+  // 尝试解析成对象
+  let parsed = typeof overflyCountry=='string'?safeJSONParse(overflyCountry):overflyCountry;
+
+//   if (typeof overflyCountry === 'string') {
+//     try {
+//       parsed = JSON.parse(overflyCountry);
+
+//       // 有些数据可能是字符串嵌套的 JSON（比如 '"[{\\"country\\":...}]"'）
+//       if (typeof parsed === 'string') {
+//         parsed = JSON.parse(parsed);
+//       }
+//     } catch (e) {
+//       console.error('❌ overflyCountry JSON 解析失败:', e);
+//       return '';
+//     }
+//   }
+
+  // 确保最终是数组
+  if (!Array.isArray(parsed)) return '';
+
+  return parsed.map(item => item.country).join(', ');
+};
+// const getOverflyCountryNames = (overflyCountry) => {
+//     if (!overflyCountry) return ''
+//     console.log('类型',typeof(overflyCountry),'overflyCountry', overflyCountry)
+
+//     return typeof(overflyCountry) == 'string'?JSON.parse(overflyCountry).map(item => item.country).join(', '):overflyCountry.map(item => item.country).join(', ')
+// }
 const watchRouteCodeAutoGeneration = (form) => {
     watch(
         () => [form.departure, form.arrival],
@@ -325,6 +374,8 @@ const handleSubmitRoutes = async (submitData) => {
         if (isEditing.value) {
             await updateRoutes(submitData);
             ElMessage.success('更新成功');
+            refreshRoute()
+            showAddRoute.value = false;
         } else {
             const batchSize = 50;
             for (let i = 0; i < submitData.length; i += batchSize) {
@@ -339,16 +390,17 @@ const handleSubmitRoutes = async (submitData) => {
                     )
                 })
             }
-            showAddRoute.value = false;
+
             // await addRoutes(submitData);
             ElMessage.success('添加成功');
-            await refreshRouteList()
-
-            setTimeout(() => {
-                // showUploadDialog.value = false;
-                uploading.value = false
-                uploadProgress.value = 0; // 重置，方便下次用
-            }, 500);
+            showAddRoute.value = false;
+            // await refreshRouteList()
+            refreshRoute()
+            // setTimeout(() => {
+            //     // showUploadDialog.value = false;
+            //     uploading.value = false
+            //     uploadProgress.value = 0; // 重置，方便下次用
+            // }, 500);
         }
 
         // const newRouteResponse = await getRoutes();
@@ -363,6 +415,27 @@ const handleSubmitRoutes = async (submitData) => {
         uploadProgress.value = 0;
     }
 };
+const refreshRoute = async () => {
+    const routeResponse = await getRoutes();
+
+    routesData.value = routeResponse.data;
+    const transferRoute = routesData.value.map(item => {
+        if (typeof item.overflyCountry === 'string') {
+            try {
+                item.overflyCountry = JSON.parse(item.overflyCountry)
+            } catch (e) {
+                console.error('overflyCountry 解析失败:', item.overflyCountry)
+                item.overflyCountry = []
+            }
+        }
+        return item
+    })
+    // const countryResponse = await getCountryRules();
+
+    // countryData.value = countryResponse.data
+    filteredRoutes.value = transferRoute
+    console.log('filteredRoutes', filteredRoutes.value)
+}
 const refreshRouteList = async () => {
     const res = await getRoutes();
     if (res?.data) {
@@ -523,10 +596,21 @@ onMounted(async () => {
         const routeResponse = await getRoutes();
 
         routesData.value = routeResponse.data;
+        const transferRoute = routesData.value.map(item => {
+            if (typeof item.overflyCountry === 'string') {
+                try {
+                    item.overflyCountry = JSON.parse(item.overflyCountry)
+                } catch (e) {
+                    console.error('overflyCountry 解析失败:', item.overflyCountry)
+                    item.overflyCountry = []
+                }
+            }
+            return item
+        })
         const countryResponse = await getCountryRules();
 
         countryData.value = countryResponse.data
-        filteredRoutes.value = routesData.value
+        filteredRoutes.value = transferRoute
 
         console.log('countryData:', countryData.value);
         console.log('filteredRoutes:', filteredRoutes.value);

@@ -20,15 +20,15 @@
                         <div class="left-align-container-text">
                             <strong>航路代码：</strong>{{ item.routeCode }}
                         </div>
-                        <div class="left-align-container-text">
+                        <!-- <div class="left-align-container-text">
                             <strong>航路走向：</strong>{{ item.ATSroute }}
-                        </div>
+                        </div> -->
                         <div v-if="props.getOverflyCountryNames(item.overflyCountry).length"
                             class="left-align-container-text">
                             <strong>途经国家：</strong>
                             <el-tag v-for="(country, i) in props.getOverflyCountryNames(item.overflyCountry)" :key="i"
-                                type="success" class="mr-1" size="small">
-                                {{ country }}
+                               class="mr-1" size="small" :type="country.needPermit?'success':'info'">
+                                {{ country.country }}
                             </el-tag>
                         </div>
                     </div>

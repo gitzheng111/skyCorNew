@@ -32,7 +32,7 @@ const loadFlightData = async () => {
   const taskResponse = await getTaskList();
   flightsData.value = flightResponse.data;
   taskListInServer.value = taskResponse.data;
-  console.log('flightsData',flightsData)
+  console.log('flightsData', flightsData)
   flightsData.value.forEach(flight => {
     // console.log(`flightNumber${flight.flightNumber}`,'Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))
     // if(flight.flightNumber=='MF824'){console.log('Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))}
@@ -78,7 +78,7 @@ const loadFlightData = async () => {
                 )
               );
             }
-            console.log(`航路匹配flightNumber${flight.flightNumber}`,routeMatch)
+            console.log(`航路匹配flightNumber${flight.flightNumber}`, routeMatch)
             // if(flight.flightNumber=='MF824'){console.log(`航路匹配flightNumber${flight.flightNumber}`,routeMatch)}
             if (flightMatchItem && routeMatch) {
               matched = true;
@@ -114,8 +114,19 @@ const loadFlightData = async () => {
       });
 
       // route 下收集所有国家的 taskKeys
+      let applyRouteCount = 0
       route.taskKeys = allTaskKeys;
+      route.isApply = Array.isArray(route.taskKeys) && route.taskKeys.length > 0
+      if (!route.isPermit && route.isApply) {
+        applyRouteCount++;
+      }
+      if (applyRouteCount >= 0) {
+        flight.applyRoute = applyRouteCount
+
+      }
+
     });
+
   });
 
   console.log("flightsData with applyStatus:", flightsData.value);

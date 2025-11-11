@@ -119,7 +119,7 @@
             </div>
         </el-drawer>
         <permissionMatch v-model:visible="showAddPermitChoose" :taskKey="selectTaskData?.taskKey" :data="curCountryData"
-            @upload-success="refreshTaskList" :isEditing="isEditing" :editData="editData" />
+            @upload-success="refreshPermission" :isEditing="isEditing" :editData="editData" />
         <filePreview :file="currentFile" v-model:visible="previewVisible" />
 
     </div>
@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { getFlights, getRoutes, getPermission, baseURL, getTaskList, baseFileURL } from '../api.js';
+import { getFlights, getRoutes, getPermission, baseURL, getTaskList, baseFileURL, deletePermissionByIds } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw } from 'vue'
 import { getLastSunday, calculateSeasons } from '../utils/seasonCalculator'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -136,7 +136,10 @@ import Searcher from '../utils/searcher.vue'
 import permissionMatch from '../utils/permissionMatch.vue'
 import fileView from '../utils/fileView.vue'
 import filePreview from '../utils/filePreview.vue'
-const permission = ref()
+import { useLoading } from '../plugins/loading'
+const loading = useLoading()
+
+const permission = ref([])
 const flights = ref()
 const searchQuery = reactive({});
 const searchFields = ref([]);
@@ -173,6 +176,7 @@ const selectCountry = (country) => {
     // curCountryData.value=[]
     // selectTaskData.value = []
 }
+
 const clickPermit = ref()
 const drawerVisible = ref()
 const multipleSelection = ref()
@@ -185,20 +189,30 @@ const isEditing = ref(false)
 // const editData = ref([])
 const editData = ref({
     curCountryData: {
+        
         flightList: [],
         overflyDetails: [],
-        overflyCountry:''
+        overflyCountry: '',
+        fileName: '',
+        url: '',
+        uploadTime: ''
     },
-    
+
     fileDataByCountry: {}
 })
 const editPermission = () => {
     isEditing.value = true
-    showAddPermission.value=false
+    showAddPermission.value = false
     showAddPermitChoose.value = true
     const country = multipleSelection.value[0].country
     // console.log('country',country)/
     editData.value.curCountryData.overflyCountry = country
+    editData.value.fileName = multipleSelection.value[0].fileName
+    editData.value.url = multipleSelection.value[0].url
+    editData.value.permissionNumber = multipleSelection.value[0].permissionNumber
+    editData.value.permissionId = multipleSelection.value[0].id
+
+    editData.value.taskKey = multipleSelection.value[0].taskKey
     editData.value.curCountryData.flightList = multipleSelection.value[0].relateData.applyFlight
     editData.value.curCountryData.overflyDetails = multipleSelection.value[0].relateData.applyRoute
     if (!editData.value.fileDataByCountry[country]) {
@@ -209,6 +223,44 @@ const editPermission = () => {
 
     console.log('editData', editData)
 
+}
+const deletePermission = async () => {
+    if (multipleSelection.value.length === 0) return
+
+    try {
+        await ElMessageBox.confirm(
+            `确定删除选中的 ${multipleSelection.value.length} 条批复数据？`,
+            '警告',
+            {
+                confirmButtonText: '删除',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }
+        )
+
+        // 假设每条航路有唯一的 id 字段
+        const idsToDelete = multipleSelection.value.map(item => item.id)
+        console.log('idsToDelete', idsToDelete)
+        // 调用后端接口进行删除
+        await deletePermissionByIds(idsToDelete)
+
+        // 或者：本地前端删除（模拟）
+        // routesData.value = routesData.value.filter(
+        //   item => !idsToDelete.includes(item.id)
+        // )
+
+
+        multipleSelection.value = []
+        const permissionResponse = await getPermission();
+        if (permissionResponse?.data) {
+            permission.value = permissionResponse.data;
+            ElMessage.success('删除成功')
+        }
+
+    } catch (err) {
+        // 用户点击取消
+        console.log('批量删除取消')
+    }
 }
 const showClickRowDetail = (row) => {
     clickPermit.value = row
@@ -239,6 +291,13 @@ const previewFile = (file) => {
     previewVisible.value = true
 }
 
+const refreshPermission = async () => {
+    const permissionResponse = await getPermission();
+    permission.value = permissionResponse.data;
+    filteredData.value = [...permission.value];
+
+    console.log('新的permission',permission)
+}
 const seasonOptions = [
     {
         value: '2025summer',
@@ -383,14 +442,17 @@ const handleSearch = () => {
 
 onMounted(async () => {
     try {
+        loading.show('正在加载批复数据，请稍候...')
+
         const flightResponse = await getFlights();
         // const routeResponse = await getRoutes();
         const permissionResponse = await getPermission();
+        permission.value = permissionResponse.data;
+
         const res = await getTaskList()
         taskList.value = res.data
         flights.value = flightResponse.data;
         // routes.value = routeResponse.data;
-        permission.value = permissionResponse.data;
         filteredData.value = [...permission.value];
         if (permission.value.length > 0) {
             const firstItem = permission.value[0]; // 获取第一个对象
@@ -401,6 +463,7 @@ onMounted(async () => {
         console.log('permissionResponse:', permission.value);
         console.log('searchFields:', searchFields.value);
 
+        loading.hide()
 
     } catch (error) {
         console.error('API error:', error);

@@ -4,9 +4,9 @@
 
     </el-Segmented>
     <div style="display: flex; justify-content: left; align-items: center;height: 50px;margin-left: 50px;">
-        <el-button type="warning" @click="showApplyRequired">
+        <!-- <el-button type="warning" @click="showApplyRequired">
             {{ hideRight ? '隐藏需申请航班' : '显示需申请航班' }}
-        </el-button>
+        </el-button> -->
         <el-button :icon="Plus" @click="addFlightData">新增航班</el-button>
         <el-button type="danger" @click="confirmBatchDelete" :disabled="multipleSelection.length === 0">
             批量删除
@@ -18,7 +18,12 @@
     <div style="display: flex; height: 100vh;">
         <div style="flex: 3; padding: 10px; border-right: 1px solid #ccc; overflow: auto;">
             <!-- <template #first> -->
-            <h3>所有航班({{ filteredFlights.length }}个航班)</h3>
+            <h3>航班列表</h3>
+            <div>
+
+                <el-tag type="success" size="large">{{ filteredFlights.length }}个航班</el-tag>
+                <!-- <el-tag>{{ applyRequired.length }}个航班需申请</el-tag> -->
+            </div>
             <el-table :data="filteredFlights" @selection-change="handleSelectionChange" @row-click="showClickRowDetail">
 
                 <el-table-column type="selection" width="55" />
@@ -38,16 +43,7 @@
                         <div>{{ row.flightNumber }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column label="航路可用醒">
-                    <template #default="{ row }">
-                        <div>
-                            <el-tag
-                                :type="row.allValid === 'all' ? 'success' : (row.allValid > 0 ? 'warning' : 'danger')">
-                                {{ row.allValid === 'all' ? '全部可用' : `${row.allValid}条可用` }}
-                            </el-tag>
-                        </div>
-                    </template>
-                </el-table-column>
+
                 <el-table-column prop="departure" label="起飞机场">
                     <template #default="{ row }">
                         <div>{{ row.departure }}</div>
@@ -66,6 +62,28 @@
                 <el-table-column prop="arrivalTime" label="落地时间">
                     <template #default="{ row }">
                         <div>{{ formatTimeFree(row.arrivalTime, row.arrival) }}</div>
+                    </template>
+                </el-table-column>
+                <el-table-column label="航路可用" width="130">
+                    <template #default="{ row }">
+                        <div>
+                            <div>
+                                <el-tag type="primary">
+                                    规划{{ row.matchingRoutes.length }}条航路
+                                </el-tag>
+                            </div>
+                            <div style="display: flex;flex-direction: row;">
+                                <el-tag v-if="row.allValid !== 'all'" type="warning">
+                                    申{{ row.applyRoute }}
+                                </el-tag>
+                                <el-tag
+                                    :type="row.allValid === 'all' ? 'success' : (row.allValid > 0 ? 'warning' : 'danger')">
+                                    {{ row.allValid === 'all' ? '全部可用' : `可用${row.allValid}` }}
+                                </el-tag>
+                            </div>
+
+
+                        </div>
                     </template>
                 </el-table-column>
                 <el-table-column prop="arrivalTime" label="开始时间">
@@ -101,22 +119,32 @@
                         </el-tooltip>
                     </template>
                 </el-table-column>
+
                 <el-table-column label="创建时间">
                     <template #default="{ row }">
                         {{ formatDate(row.createTime) }}
                         <!-- <daysPicker v-model="" /> -->
                     </template>
                 </el-table-column>
-
+                <el-table-column label="更新时间">
+                    <template #default="{ row }">
+                        {{ formatDate(row.updateTime ? row.updateTime : row.createTime) }}
+                        <!-- <daysPicker v-model="" /> -->
+                    </template>
+                </el-table-column>
                 <el-table-column fixed="right" label="Operations" min-width="120">
 
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click.stop="editFlight(row)">
-                            编辑/修改
+                            编辑
+                        </el-button>
+                        <el-button type="warning" size="small" @click.stop="changeFlight(row)">
+                            改
                         </el-button>
                     </template>
                 </el-table-column>
             </el-table>
+            <changeEvalue v-model:visible="showChangeEvalue" :evalueData="evalueData" />
             <el-drawer v-model="drawerVisible" title="航班详情" direction="rtl" size="40%" :destroy-on-close="true">
                 <template v-if="clickFlight">
                     <el-descriptions title="基本信息" :column="2" border>
@@ -129,9 +157,9 @@
                     <el-descriptions title="时间信息" :column="2" border class="mt-3">
                         <el-descriptions-item label="起飞机场">{{ clickFlight.departure }}</el-descriptions-item>
                         <el-descriptions-item label="到达机场">{{ clickFlight.arrival }}</el-descriptions-item>
-                        <el-descriptions-item label="起飞时间">{{ formatTime(clickFlight.departureTime)
+                        <el-descriptions-item label="起飞时间">{{ formatTimeFree(clickFlight.departureTime)
                         }}</el-descriptions-item>
-                        <el-descriptions-item label="到达时间">{{ formatTime(clickFlight.arrivalTime)
+                        <el-descriptions-item label="到达时间">{{ formatTimeFree(clickFlight.arrivalTime)
                         }}</el-descriptions-item>
                     </el-descriptions>
 
@@ -165,7 +193,8 @@
                                 <div v-if="curClickCountryDetails">
                                     <h4>飞越航路详情</h4>
 
-                                    <overflyDataView :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
+                                    <overflyDataView :editShow="false"
+                                        :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
                                 </div>
                             </el-collapse-item>
                         </el-collapse>
@@ -370,7 +399,10 @@
     <!-- 选择选中航班航路 ///////////////////////////////////////////////////////////////////////////////-->
     <el-dialog v-model="showChooseTaskVisible" width="80%" style="max-height: 600px;overflow-y: scroll;">
 
-        <h2>选择的航班</h2>
+        <h2>请在以下航班选择并创建任务</h2>
+        <el-button type="primary" @click="createTask(taskNeedData)" class="mt-4">
+            创建任务
+        </el-button>
         <div>
             <el-checkbox v-model="selectAll" @change="handleSelectAll" label="全选所有航班" class="mb-4" />
 
@@ -381,20 +413,19 @@
                         @update:routes="handleRouteSelect" />
                 </el-col>
             </el-row>
-            <el-button type="primary" @click="createTask(taskNeedData)" class="mt-4">
-                创建任务
-            </el-button>
+
 
             <el-dialog v-model="showCreateTask" title="任务详情" width="70%">
                 <el-scrollbar height="500px">
                     <div v-if="taskList.length > 0">
+                        <h4 class="text-lg font-bold">任务名字</h4>
+                        <el-input v-model="curTaskNameInput" placeholder="请输入任务名字"></el-input>
                         <el-card v-for="item in taskList" :key="item.overflyCountry" class="mb-4" shadow="hover"
                             body-style="{ padding: '20px' }">
-                            <h4 class="text-lg font-bold">任务名字</h4>
-                            <el-input v-model="curTaskNameInput" placeholder="请输入任务名字"></el-input>
+
                             <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-lg font-bold">航季：</h4>
-                                <el-tag>{{ item.season }}</el-tag>
+                                <!-- <h4 class="text-lg font-bold"></h4> -->
+                                <el-tag>航季：{{ item.season }}</el-tag>
                             </div>
                             <div class="flex items-center justify-between mb-2">
                                 <h4 class="text-lg font-bold">国家/地区：{{ item.overflyCountry }}</h4>
@@ -460,7 +491,12 @@ import flightCard from '../utils/flightCard.vue'
 import addDataTool from '../utils/addDataTool.vue'
 import DaysShow from '../utils/daysShow.vue'
 import { useLoading } from '../plugins/loading'
+import changeEvalue from '../utils/changeEvalue.vue'
+import { useSeasonData } from '../components/useSeasonUtils'
 
+const { todaySeason } = useSeasonData()
+
+const showChangeEvalue = ref(false)
 const loading = useLoading()
 const router = useRouter()
 const parentFlights = ref([])
@@ -550,7 +586,12 @@ const addFlightData = async () => {
 const getOverflyCountryNames = (overflyCountry) => {
     if (!overflyCountry || !Array.isArray(overflyCountry)) return []
     // console.log('overflyCountry.map(item => item.country)', overflyCountry.map(item => item.country))
-    return overflyCountry.map(item => item.country)
+    // console.log('overflyCountry.map(item => item.country,item.needPermit)',overflyCountry.map(item => item.country,item.needPermit))
+    // return overflyCountry.map(item => ({item.country,item.needPermit}))
+    return overflyCountry.map(item => ({
+        country: item.country,
+        needPermit: item.needPermit
+    }))
 }
 //增加航班信息
 const emptyFlight = () => ({
@@ -684,6 +725,15 @@ const editFlight = (data) => {
     editFlightMode.value = true
     editDataFromFather.value = data
     console.log('editDataFromFather', editDataFromFather.value)
+}
+const evalueData = ref()
+
+const changeFlight = (data) => {
+    console.log('输入的更改内容', data)
+    evalueData.value = []
+    showChangeEvalue.value = true
+    evalueData.value = data
+
 }
 //处理子组件增加航班的数据
 const handleProcessData = async (processedDataFromChild) => {
@@ -1143,6 +1193,8 @@ const transferToTaskdata = (data) => {
 const showChooseTaskVisible = ref(false)
 const showChooseTask = (data) => {
     showChooseTaskVisible.value = true
+    // selectAll.value = true
+
 }
 const selectedRouteIds = ref([])
 const createTask = (data) => {
@@ -1230,9 +1282,12 @@ const createTask = (data) => {
 
 const generateDefaultTaskName = () => {
     const timestamp = dayjs().format('YYYYMMDDHHmm')
+    console.log('taskLisk', taskList.value)
     const firstFlightNumber = taskList.value[0]?.flightList?.[0]?.flightNumber || '未知航班'
+    const totalCountry = taskList.value.length
+    const firstCountry = taskList.value[0]?.overflyCountry
     const totalFlights = taskList.value.reduce((sum, item) => sum + item.flightList.length, 0)
-    return `${timestamp}_${firstFlightNumber}_等${totalFlights}个航班`
+    return `${timestamp}创建_${firstFlightNumber}等航班_${totalCountry}个国家的飞越申请`
 }
 const curTaskNameInput = ref()
 const submitTaskToServer = async () => {

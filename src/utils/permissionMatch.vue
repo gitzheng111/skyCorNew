@@ -1,5 +1,5 @@
 <template>
-    <el-dialog v-model="windowVisible" title="飞越批复匹配" width="95%">
+    <el-dialog v-model="windowVisible" :title="isEditing ? '编辑飞越批复' : '飞越批复匹配'" width="95%">
         <div v-if="!curTaskKey && !isEditing">
             <h3>任务列表</h3>
             <el-scrollbar height="300px" class="task-list">
@@ -32,7 +32,7 @@
                                 <el-table-column prop="arrival" label="目的机场" />
                                 <el-table-column prop="arrivalTime" label="落地时间" />
                             </el-table>
-                            <div>{{ curCountryData?.overflyDetails.length }}条航路数据</div>
+                            <div>{{ curCountryData?.overflyDetails?.length }}条航路数据</div>
 
                             <el-table :data="curCountryData?.overflyDetails || []" style="margin-bottom: 8px"
                                 height="200">
@@ -55,6 +55,7 @@
                         </el-card>
                         <el-card class="dataBox">
                             <h3><span class="season-tip">航季：{{ displaySeason }}</span>批复数据</h3>
+
                             <el-input v-model="permissionNumbers[curCountryData.overflyCountry]" placeholder="请输入批复号"
                                 style="width: 200px"></el-input>
 
@@ -63,39 +64,187 @@
 
                             <el-table :data="fileDataByCountry[curCountryData.overflyCountry]?.permitFlight"
                                 style="margin-top: 8px" height="200">
-                                <el-table-column prop="flightNumber" label="航班号" />
-                                <el-table-column prop="departure" label="起飞机场" />
-                                <el-table-column prop="departureTime" label="起飞时间" />
-                                <el-table-column prop="arrival" label="目的机场" />
-                                <el-table-column prop="arrivalTime" label="落地时间" />
+                                <el-table-column label="航班号" width="120">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitFlight">
+                                            <el-input v-model="row.flightNumber" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.flightNumber }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 起飞机场 -->
+                                <el-table-column label="起飞机场" width="120">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitFlight">
+                                            <el-input v-model="row.departure" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.departure }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 起飞时间 -->
+                                <el-table-column label="起飞时间" width="140">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitFlight">
+                                            <el-input v-model="row.departureTime" size="small" placeholder="如 22:00" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.departureTime }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 目的机场 -->
+                                <el-table-column label="目的机场" width="120">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitFlight">
+                                            <el-input v-model="row.arrival" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.arrival }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 落地时间 -->
+                                <el-table-column label="落地时间" width="140">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitFlight">
+                                            <el-input v-model="row.arrivalTime" size="small" placeholder="如 07:25" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.arrivalTime }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 操作 -->
+                                <el-table-column label="操作" width="120" align="center">
+                                    <template #default="{ $index }">
+                                        <el-button v-if="isEditingPermitFlight" type="danger" size="small"
+                                            @click="removeFlight($index)">
+                                            删除
+                                        </el-button>
+                                    </template>
+                                </el-table-column>
+
                             </el-table>
+                            <div>
+                                <el-button v-if="!isEditingPermitFlight" type="primary" @click="startEdit">
+                                    编辑批复航班
+                                </el-button>
+
+                                <template v-else>
+                                    <el-button type="success" @click="saveChanges">保存</el-button>
+                                    <el-button type="warning" @click="cancelEdit">取消</el-button>
+                                    <el-button type="primary" @click="addFlight">新增航班</el-button>
+                                </template>
+                            </div>
                             <el-table :data="fileDataByCountry[curCountryData.overflyCountry]?.permitRoute"
                                 style="margin-top: 8px" height="200">
-                                <el-table-column prop="sector" label="航段" />
+                                <el-table-column label="航段" width="120">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitRoute">
+                                            <el-input v-model="row.sector" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.sector }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
 
-                                <el-table-column prop="ATSroute" label="航线" />
-                                <el-table-column prop="entryPoint" label="入境点" />
-                                <el-table-column prop="exitPoint" label="出境点" />
+                                <!-- 起飞机场 -->
+                                <el-table-column label="航线" width="120">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitRoute">
+                                            <el-input v-model="row.ATSroute" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.ATSroute }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 起飞时间 -->
+                                <el-table-column label="入境点" width="140">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitRoute">
+                                            <el-input v-model="row.entryPoint" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.entryPoint }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 目的机场 -->
+                                <el-table-column label="出境点" width="120">
+                                    <template #default="{ row }">
+                                        <template v-if="isEditingPermitRoute">
+                                            <el-input v-model="row.exitPoint" size="small" placeholder="请输入" />
+                                        </template>
+                                        <template v-else>
+                                            {{ row.exitPoint }}
+                                        </template>
+                                    </template>
+                                </el-table-column>
+
+                                <!-- 操作 -->
+                                <el-table-column label="操作" width="120" align="center">
+                                    <template #default="{ $index }">
+                                        <el-button v-if="isEditingPermitRoute" type="danger" size="small"
+                                            @click="removeRoute($index)">
+                                            删除
+                                        </el-button>
+                                    </template>
+                                </el-table-column>
+
                             </el-table>
+                            <div>
+                                <el-button v-if="!isEditingPermitRoute" type="primary" @click="startEditPermitRoute">
+                                    编辑批复航班
+                                </el-button>
+
+                                <template v-else>
+                                    <el-button type="success" @click="saveChangesPermitRoute">保存</el-button>
+                                    <el-button type="warning" @click="cancelEditPermitRoute">取消</el-button>
+                                    <el-button type="primary" @click="addFlightPermitRoute">新增航班</el-button>
+                                </template>
+                            </div>
 
                             <!-- 批复文件上传（单文件） -->
-                            <el-upload :auto-upload="false" :file-list="fileListDisplay(curCountryData.overflyCountry)"
-                                :on-change="file => handleFileChange(curCountryData.overflyCountry, file)"
-                                :on-remove="(file) => handleFileRemove(curCountryData.overflyCountry, file)"
-                                accept=".pdf,.doc,.docx">
-                                <el-button type="success" icon="Upload">
-                                    为「{{ curCountryData.overflyCountry }}」添加批复文件
-                                </el-button>
-                            </el-upload>
+                            <div v-if="!curPermitFile.url">
+                                <el-upload :auto-upload="false"
+                                    :file-list="fileListDisplay(curCountryData.overflyCountry)"
+                                    :on-change="file => handleFileChange(curCountryData.overflyCountry, file)"
+                                    :on-remove="(file) => handleFileRemove(curCountryData.overflyCountry, file)"
+                                    accept=".pdf,.doc,.docx,.png,.pic,.jpeg,.jpg">
+                                    <el-button type="success" icon="Upload">
+                                        为「{{ curCountryData.overflyCountry }}」添加批复文件
+                                    </el-button>
+                                </el-upload>
+                            </div>
+                            <div v-else>
+                                <fileView :file="curPermitFile" :loading="false" @click="previewFile(curPermitFile)" />
+                                <filePreview :file="currentFile" v-model:visible="previewVisible" />
+
+                            </div>
+
 
                             <div style="display: flex;align-items: center;justify-content: center;">
-                                <el-button :disabled="!paragraphs.length && !tableRead.length && !docVisible"
+                                <el-button v-if="!isEditing"
+                                    :disabled="!paragraphs.length && !tableRead.length && !docVisible"
                                     @click="showPermitFile" style="width: 30%;">
-                                    预览批复文件
+                                    预览文件
                                 </el-button>
                                 <el-button :disabled="!paragraphs.length && !tableRead.length" @click="readFileToData"
                                     style="width: 30%;">
-                                    识别批复文件
+                                    读取文件
                                 </el-button>
                                 <el-button type="primary" style="width: 30%;"
                                     :disabled="!paragraphs?.length && !tableRead?.length && !fileDataByCountry[curCountryData?.overflyCountry]?.length"
@@ -107,6 +256,10 @@
 
                         </el-card>
                         <!-- 正文预览 -->
+                        <el-card v-if="previewPDFVisible">
+                            <filePreview :file="currentFile" v-model:visible="previewPDFVisible" />
+
+                        </el-card>
                         <el-card v-if="paragraphs.length && tableRead.length && docVisible" class="dataBox">
                             <div v-if="paragraphs.length">
                                 <el-card class="mb-4">
@@ -203,16 +356,27 @@
             <el-button @click="windowVisible = false">取消</el-button>
             <el-button type="primary" @click="savePermissionData">保存</el-button>
         </template>
+
+        <el-dialog v-model="overwriteDialog" title="覆盖确认" width="400px" append-to-body>
+            <p>当前记录已有文件，是否覆盖原文件？</p>
+            <template #footer>
+                <el-button @click="cancelOverwrite">保留原文件</el-button>
+                <el-button type="danger" @click="confirmOverwrite">覆盖原文件</el-button>
+            </template>
+        </el-dialog>
     </el-dialog>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue'
-import { getTaskList, updatePermission } from '../api.js'
+import { ref, watch, onMounted, computed, toRaw } from 'vue'
+import { getTaskList, updatePermission, baseFileURL, getPermission } from '../api.js'
 import { ElMessage } from 'element-plus'
 import mammoth from "mammoth"
 import * as cheerio from 'cheerio'
 import { beijingToUTC, formatTimeWithoutColon, formatDateToCountry } from '../utils/timeTransfer.js';
+import fileView from '../utils/fileView.vue'
+import filePreview from '../utils/filePreview.vue'
+import crypto from 'crypto';
 // import {getShowArrivalTime} from '../utils/applyDoc.vue';
 // import VueOfficeDocx from 'vue-office-docx'
 const props = defineProps({
@@ -230,12 +394,101 @@ const curTaskData = ref(null)
 const windowVisible = ref(props.visible)
 const curCountryData = ref()
 const showCompare = ref(false)
+const previewVisible = ref(false)
+
+const overwriteDialog = ref(false)
+const fileList = ref([])
+const newFile = ref(null)
+const overwriteFile = ref(false)
+
+//编辑飞越数据模块
+const isEditingPermitFlight = ref(false);
+let backupFlights = [];
+const startEdit = () => {
+    isEditingPermitFlight.value = true;
+    const country = curCountryData.value.overflyCountry;
+    backupFlights = JSON.parse(
+        JSON.stringify(fileDataByCountry.value[country].permitFlight)
+    );
+
+};
+
+const saveChanges = () => {
+    isEditingPermitFlight.value = false;
+    const country = curCountryData.value.overflyCountry;
+    console.log("保存后的航班数据：", fileDataByCountry.value[country].permitFlight);
+    // TODO: 在这里调用接口保存，比如 axios.post('/update', fileDataByCountry.value[country].permitFlight)
+};
+const addFlight = () => {
+    const country = curCountryData.value.overflyCountry;
+    fileDataByCountry.value[country].permitFlight.push({
+        flightNumber: "",
+        departure: "",
+        departureTime: "",
+        arrival: "",
+        arrivalTime: "",
+        aircraftType:'',
+        attribution:'',
+        days:[],
+        startDate:'',
+        endDate:'',
+
+    });
+};
+const cancelEdit = () => {
+    const country = curCountryData.value.overflyCountry;
+    fileDataByCountry.value[country].permitFlight = backupFlights;
+    isEditingPermitFlight.value = false;
+};
+const removeFlight = (index) => {
+  const country = curCountryData.value.overflyCountry;
+  fileDataByCountry.value[country].permitFlight.splice(index, 1);
+};
+
+const isEditingPermitRoute = ref(false);
+let backupRoutes = [];
+const startEditPermitRoute = () => {
+    isEditingPermitRoute.value = true;
+    const country = curCountryData.value.overflyCountry;
+    backupFlights = JSON.parse(
+        JSON.stringify(fileDataByCountry.value[country].permitRoute)
+    );
+
+};
+
+const saveChangesPermitRoute = () => {
+    isEditingPermitRoute.value = false;
+    const country = curCountryData.value.overflyCountry;
+    console.log("保存后的航班数据：", fileDataByCountry.value[country].permitRoute);
+    // TODO: 在这里调用接口保存，比如 axios.post('/update', fileDataByCountry.value[country].permitFlight)
+};
+const addFlightPermitRoute = () => {
+    const country = curCountryData.value.overflyCountry;
+    fileDataByCountry.value[country].permitRoute.push({
+        sector: "",
+        ATSroute: "",
+        entryPoint: "",
+        exitPoint: "",
+
+    });
+};
+const cancelEditPermitRoute = () => {
+    const country = curCountryData.value.overflyCountry;
+    fileDataByCountry.value[country].permitRoute = backupRoutes;
+    isEditingPermitRoute.value = false;
+};
+const removeRoute = (index) => {
+  const country = curCountryData.value.overflyCountry;
+  fileDataByCountry.value[country].permitRoute.splice(index, 1);
+};
+
 function transformFlightNumber(flightNumber) {
     if (!flightNumber) return "";
     // 提取数字部分
     const digits = flightNumber.match(/\d+$/);
     return digits ? `CXA${digits[0]}` : `CXA`;
 }
+//编辑模式
 const isEditing = ref(false)
 
 watch(() => props.visible, val => (windowVisible.value = val))
@@ -256,91 +509,104 @@ watch(() => props.visible, val => (windowVisible.value = val))
 //   },
 //   { immediate: true }
 // )
-watch(
-  () => [props.isEditing, props.editData, props.data],
-  ([newIsEditing, newEditData, newData]) => {
-    // 统一转换编辑状态为布尔值
-    const isEditMode = newIsEditing
-    isEditing.value = isEditMode
-    console.log('isEditMode',isEditMode,'newEditData',newEditData,'newData',newData)
-    if (isEditMode) {
-      // 编辑模式
-
-      if (newEditData && Array.isArray(newEditData.curCountryData.flightList)) {
-        curCountryData.value = newEditData.curCountryData || {}
-        fileDataByCountry.value = newEditData.fileDataByCountry || {}
-        console.log('[Editing Mode] curCountryData updated:', curCountryData.value)
-      } else {
-        console.warn('[Editing Mode] Invalid or empty flightList:', newEditData?.flightList)
-        curCountryData.value = { flightList: [] }
-        fileDataByCountry.value = {}
-      }
-    } else {
-      // 查看模式
-      if (newData && Array.isArray(newData.flightList)) {
-        curCountryData.value = newData
-        console.log('[View Mode] curCountryData updated:', curCountryData.value)
-      } else {
-        console.warn('[View Mode] Invalid or empty flightList:', newData?.flightList)
-        curCountryData.value = { flightList: [] }
-      }
+const curPermitFile = ref({
+    name: '',
+    url: '',
+    uploadTime: '',
+    file: null,
+})
+const currentFile = ref()
+function isFullUrl(url) {
+    return /^http?:\/\//.test(url)
+}
+function isLocalFile(file) {
+  if (file instanceof File) return true
+  if (typeof file.url === 'string' && file.url.startsWith('blob:')) return true
+  if (file.uid && file.name && !isFullUrl(file.url || '')) return true
+  return false
+}
+const previewFile = (file) => {
+    // console.log('file', file)
+    let fullUrl = file.url
+    if (!isFullUrl(file.url)) {
+        fullUrl = baseFileURL + file.url
     }
+    currentFile.value = {
+        ...toRaw(file),
+        url:  isLocalFile(file) ? file.url : fullUrl,
+        source: isLocalFile(file) ? 'local' : 'net'
+    }
+    // console.log('currentFile', currentFile)
+    previewVisible.value = true
+}
+const isFileProcessing = ref(false)
+const curPermitId = ref()
+watch(
+    () => [props.isEditing, props.editData, props.data],
+    async ([newIsEditing, newEditData, newData]) => {
+        // 统一转换编辑状态为布尔值
+        const isEditMode = newIsEditing
+        isEditing.value = isEditMode
+        // console.log('isEditing', isEditing.value)
+        // console.log('isEditMode', isEditMode, 'newEditData', newEditData, 'newData', newData)
+        if (isEditMode) {
+            // 编辑模式
+            console.log('编辑模式newEditData', newEditData)
 
-    // 调试输出
-    console.log('isEditing:', isEditMode)
-    console.log('editData:', newEditData)
-    console.log('data:', newData)
-  },
-  { immediate: true, deep: true }
+            if (newEditData) {
+                console.log('编辑模式curCountryData', newData)
+                // console.log('编辑模式curCountryData',curCountryData)
+
+                curCountryData.value = newData || {}
+                const country = curCountryData.value?.overflyCountry || ''
+
+                fileDataByCountry.value[country] = newEditData.fileData || {}
+                curPermitFile.value.name = newEditData.fileName || ''
+                curPermitFile.value.url = newEditData.url || ''
+                curPermitFile.value.uploadTime = newEditData.uploadTime || ''
+                curTaskKey.value = newEditData.taskKey || ''
+                permissionNumbers.value[country] = newEditData.permissionNumber || ''
+                if (!selectedFlights.value[country]) {
+                    selectedFlights.value[country] = {}
+                }
+                curTaskData.value = taskList.value.find(t => t.taskKey === curTaskKey.value)
+                selectedFlights.value[country].applyFlight = newEditData.relateData.applyFlight
+                selectedFlights.value[country].applyRoute = newEditData.relateData.applyRoute
+                curPermitId.value = newEditData.permissionId || ''
+                if (!isFileProcessing.value) {
+                    isFileProcessing.value = true
+                    await handleFileChange(
+                        curCountryData.value.overflyCountry,
+                        curPermitFile.value
+                    )
+                    isFileProcessing.value = false
+                }
+                // handleFileChange(newEditData.curCountryData.overflyCountry, curPermitFile.value)
+                // console.log('[Editing Mode] curCountryData updated:', curCountryData.value)
+            } else {
+                // console.warn('[Editing Mode] Invalid or empty flightList:', newEditData?.flightList)
+                curCountryData.value = { flightList: [] }
+                fileDataByCountry.value = {}
+            }
+        } else {
+            // 查看模式
+            if (newData && Array.isArray(newData.flightList)) {
+                curCountryData.value = newData
+                // console.log('[View Mode] curCountryData updated:', curCountryData.value, curPermitFile.value)
+            } else {
+                console.warn('[View Mode] Invalid or empty flightList:', newData?.flightList)
+                curCountryData.value = { flightList: [] }
+            }
+        }
+
+        // 调试输出
+        // console.log('isEditing:', isEditMode)
+        // console.log('editData:', newEditData)
+        // console.log('data:', newData)
+    },
+    { immediate: true, deep: true }
 )
-// watch(
-//     () => [props.isEditing, props.editData, props.data],
-//     (val1, val2, val3) => {
-//         if (val1 == 'true') {
-//             isEditing.value = val1
-//             // 首先判断 val 是否存在，并且 flightList 是否为数组
-//             if (val2 && Array.isArray(val2.flightList)) {
-//                 curCountryData.value = val2.curCountryData
-//                 fileDataByCountry.value = val2.fileDataByCountry
-//                 console.log('curCountryData updated', curCountryData.value)
-//             } else {
-//                 console.warn('Invalid or empty flightList:', val2?.flightList)
-//                 // 当 data 为空时，可以清空当前数据，避免保留旧值
-//                 curCountryData.value = { flightList: [] }
-//             }
-//         } else {
-//             if (val3 && Array.isArray(val3.flightList)) {
-//                 curCountryData.value = val3
-//                 console.log('curCountryData updated', curCountryData.value)
-//             } else {
-//                 console.warn('Invalid or empty flightList:', val3?.flightList)
-//                 // 当 data 为空时，可以清空当前数据，避免保留旧值
-//                 curCountryData.value = { flightList: [] }
-//             }
-//         }
-//         console.log('val', val1)
 
-//         console.log('val', val2)
-
-//     },
-//     { immediate: true }
-// )
-// watch(
-//     () => props.data,
-//     (val) => {
-
-//         console.log('val', val)
-//         if (val && Array.isArray(val?.flightList)) {
-
-//             curCountryData.value = val;
-//             console.log('curCountryData updated', curCountryData.value);
-//         } else {
-//             console.error('Invalid flightList:', val.flightList);
-//         }
-
-//     },
-//     { immediate: true }
-// )
 watch(() => props.taskKey, val => curTaskKey.value = val || '')
 const emit = defineEmits(['update:visible', 'upload-success'])
 watch(windowVisible, val => emit('update:visible', val))
@@ -412,7 +678,26 @@ const keyMap = {
     "exitPoint": /EXIT\s*POINT/i
 
 };
+// const formData = ref({
+//   country: '',
+//   permissionNumber: '',
+//   url: '',
+//   fileName: '',
+//   fileData: [],
+//   startDate: '',
+//   endDate: '',
+//   relateData: {},
+// })
 
+// const handleFileChange = (file) => {
+//   newFile.value = file.raw
+//   console.log('新文件选择：', newFile.value)
+
+//   // 如果已有文件，提示确认是否覆盖
+//   if (formData.value.url) {
+//     overwriteDialog.value = true
+//   }
+// }
 // 判断内容是否是四个大写字母（机场代码）或四个数字（时间）
 function isValidFlightNumber(value) {
     return /^[A-Z]{2,3}\d{3,4}$/.test(value);
@@ -451,41 +736,104 @@ function isValidExitPoint(value) {
     return /^(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/.test(value)
 }
 // 文件选择
+
+const cancelOverwrite = () => {
+    overwriteDialog.value = false
+    newFile.value = null
+    fileList.value = [] // 清空上传区
+}
+
+const confirmOverwrite = () => {
+    overwriteDialog.value = false
+    overwriteFile.value = true
+}
+
+
 const tablesFromFile = ref()
-function handleFileChange(country, fileEvt) {
-    const raw = fileEvt.raw
-    console.log('raw', raw)
+const previewPDFVisible = ref(false)
+async function handleFileChange(country, fileEvt) {
 
-    selectedFilesByCountry.value[country] = raw
-    const reader = new FileReader()
+    if (!fileEvt || !fileEvt.raw) {
+        console.log('⚠️ 非用户触发的 file change，忽略。')
+        return
+    }
 
-    reader.onload = async (e) => {
-        const arrayBuffer = e.target.result
+    let arrayBuffer
+    let fileName = ''
+    let fileUrlPath = ''
 
+    if (props.editData?.url) {
+        console.log('显示覆盖对话框')
+        overwriteDialog.value = true
+    }
+
+    // 判断文件来源
+    if (fileEvt.raw instanceof File) {
+        selectedFilesByCountry.value[country] = fileEvt.raw
+        arrayBuffer = await fileEvt.raw.arrayBuffer()
+        fileName = fileEvt.raw.name
+    } else if (fileEvt.url) {
+        let fullUrl = fileEvt.url
+        if (!isFullUrl(fileEvt.url)) {
+            fullUrl = baseFileURL + fileEvt.url
+        }
+
+        const response = await fetch(fullUrl)
+        if (!response.ok) throw new Error('无法获取服务器文件: ' + response.statusText)
+        arrayBuffer = await response.arrayBuffer()
+        fileName = fileEvt.name || fullUrl.split('/').pop()
+        fileUrlPath = fullUrl
+    } else {
+        console.error('❌ 未检测到有效文件来源')
+        return
+    }
+
+    // ---- 获取文件扩展名 ----
+    const ext = fileName.split('.').pop().toLowerCase()
+    const now = new Date()
+
+    // ---- PDF 处理 ----
+    if (ext === 'pdf') {
+        console.log('📄 检测到 PDF 文件，跳过文字解析')
+
+        // 更新 curPermitFile
+        curPermitFile.value = {
+            name: fileName,
+            url: fileUrlPath || URL.createObjectURL(fileEvt.raw),
+            uploadTime: now.toISOString(),
+            file: fileEvt.raw
+        }
+
+        // 直接弹出 PDF 预览（例如 el-dialog + vue-office-pdf）
+        // previewPDFVisible.value = true
+        fileUrl.value = curPermitFile.value.url
+        paragraphs.value = []
+        tableRead.value = []
+        tablesFromFile.value = []
+
+        return
+    }
+
+    // ---- Word 文件处理 ----
+    if (ext === 'docx' || ext === 'doc') {
         try {
-            const { value: html, messages } = await mammoth.convertToHtml({ arrayBuffer })
-
-            console.log('Word 转换结果:', html)
-            // console.log('提示信息:', messages)
+            const { value: html } = await mammoth.convertToHtml({ arrayBuffer })
             const parser = new DOMParser()
             const doc = parser.parseFromString(html, 'text/html')
+
+            // 提取段落
             const pList = Array.from(doc.querySelectorAll('p'))
-                .filter(p => !p.closest('table')) // 排除 table 内的 <p>
+                .filter(p => !p.closest('table'))
                 .map(p => p.textContent.trim())
-                .filter(p => p.length > 0)
-            // const pList = Array.from(doc.querySelectorAll('p')).map(p =>
-            //     p.textContent.trim()
-            // )
-            paragraphs.value = pList.filter(p => p.length > 0)
+                .filter(Boolean)
+            paragraphs.value = pList
+
             // 提取表格
             const tableList = Array.from(doc.querySelectorAll('table')).map(table => {
-                const headers = Array.from(
-                    table.querySelectorAll('tr:first-child td, tr:first-child th')
-                ).map(cell => cell.textContent.trim())
+                const headers = Array.from(table.querySelectorAll('tr:first-child td, tr:first-child th'))
+                    .map(cell => cell.textContent.trim())
 
-                const rows = Array.from(
-                    table.querySelectorAll('tr:not(:first-child)')
-                ).map(row => {
+                const rows = Array.from(table.querySelectorAll('tr:not(:first-child)')).map(row => {
                     const cells = Array.from(row.querySelectorAll('td, th'))
                     const rowData = {}
                     cells.forEach((cell, i) => {
@@ -493,103 +841,80 @@ function handleFileChange(country, fileEvt) {
                     })
                     return rowData
                 })
-
                 return { headers, rows }
             })
             tableRead.value = tableList
-            // visible.value = true
-            console.log('tableRead', tableRead)
-            console.log('paragraphs', paragraphs)
 
-            const $ = cheerio.load(html);
+            // cheerio 重新提取 + 字段识别
+            const $ = cheerio.load(html)
             const tables = []
             $('table').each((i, table) => {
-                const headers = [];
-                const rows = [];
+                const headers = []
+                const rows = []
 
-                // 提取表头
                 $(table).find('tr').first().find('td, th').each((_, cell) => {
-                    headers.push($(cell).text().trim());
-                });
+                    headers.push($(cell).text().trim())
+                })
 
-                // 提取数据行
                 $(table).find('tr').slice(1).each((_, row) => {
-                    const cells = $(row).find('td, th');
-                    const rowData = {};
+                    const cells = $(row).find('td, th')
+                    const rowData = {}
                     cells.each((index, cell) => {
-                        rowData[headers[index] || `col${index + 1}`] = $(cell).text().trim();
-                    });
-                    rows.push(rowData);
-                });
+                        rowData[headers[index] || `col${index + 1}`] = $(cell).text().trim()
+                    })
+                    rows.push(rowData)
+                })
 
-                tables.push(rows);
-                // tablesFromFile.value  = tables
-            });
+                tables.push(rows)
+            })
 
-            const updatedTables = tables.map(table => {
-                return table.map(row => {
-                    const updatedRow = {};
-
-                    // 遍历每一行的键并根据正则规则替换
+            const updatedTables = tables.map(table =>
+                table.map(row => {
+                    const updatedRow = {}
                     Object.keys(row).forEach(oldKey => {
-                        let newKey = oldKey; // 默认情况下键名不变
-                        const value = row[oldKey];
+                        let newKey = oldKey
+                        const value = row[oldKey]
 
-                        // 判断是否满足键名和内容同时匹配的条件
-                        if (keyMap["flightNumber"].test(oldKey) && isValidFlightNumber(value)) {
-                            newKey = "flightNumber";
-                        }
-                        if (keyMap["arrival"].test(oldKey) && isValidAirportCode(value)) {
-                            newKey = "arrival";
-                        } else if (keyMap["departure"].test(oldKey) && isValidAirportCode(value)) {
-                            newKey = "departure";
-                        } else if (keyMap["arrivalTime"].test(oldKey) && isValidTime(value)) {
-                            newKey = "arrivalTime";
-                        } else if (keyMap["departureTime"].test(oldKey) && isValidTime(value)) {
-                            newKey = "departureTime";
-                        } else if (keyMap["days"].test(oldKey) && isValidDays(value)) {
-                            newKey = "days";
-                        } else if (keyMap["startDate"].test(oldKey) && isValidDate(value)) {
-                            newKey = "startDate";
-                        } else if (keyMap["endDate"].test(oldKey) && isValidDate(value)) {
-                            newKey = "endDate";
-                        } else if (keyMap["sector"].test(oldKey.toUpperCase()) && isValidSector(value)) {
-                            newKey = "sector";
-                        } else if (keyMap["ATSroute"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidATSroute(value)) {
-                            newKey = "ATSroute";
-                        } else if (keyMap["entryPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidEntryPoint(value)) {
-                            newKey = "entryPoint";
-                        } else if (keyMap["exitPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidExitPoint(value)) {
-                            newKey = "exitPoint";
-                        }
+                        if (keyMap["flightNumber"].test(oldKey) && isValidFlightNumber(value)) newKey = "flightNumber"
+                        else if (keyMap["arrival"].test(oldKey) && isValidAirportCode(value)) newKey = "arrival"
+                        else if (keyMap["departure"].test(oldKey) && isValidAirportCode(value)) newKey = "departure"
+                        else if (keyMap["arrivalTime"].test(oldKey) && isValidTime(value)) newKey = "arrivalTime"
+                        else if (keyMap["departureTime"].test(oldKey) && isValidTime(value)) newKey = "departureTime"
+                        else if (keyMap["days"].test(oldKey) && isValidDays(value)) newKey = "days"
+                        else if (keyMap["startDate"].test(oldKey) && isValidDate(value)) newKey = "startDate"
+                        else if (keyMap["endDate"].test(oldKey) && isValidDate(value)) newKey = "endDate"
+                        else if (keyMap["sector"].test(oldKey.toUpperCase()) && isValidSector(value)) newKey = "sector"
+                        else if (keyMap["ATSroute"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidATSroute(value)) newKey = "ATSroute"
+                        else if (keyMap["entryPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidEntryPoint(value)) newKey = "entryPoint"
+                        else if (keyMap["exitPoint"].test(oldKey.toUpperCase().replace(/\s+/g, '')) && isValidExitPoint(value)) newKey = "exitPoint"
 
-                        // 更新 row 对象的键值
-                        updatedRow[newKey] = value;
-                        console.log('updatedRow', updatedRow)
-                    });
-                    return updatedRow;
-                });
-            });
+                        updatedRow[newKey] = value
+                    })
+                    return updatedRow
+                })
+            )
+
             tablesFromFile.value = updatedTables
 
-            // tables.value = updatedTables
-            console.log('cherrio转化的updatedTables', tablesFromFile.value);
-            console.log('cherrio转化的tables', tables)
-            // 你可以直接显示在页面里
-            fileUrl.value = html
+            // 更新 curPermitFile
+            curPermitFile.value = {
+                name: fileName,
+                url: fileUrlPath || URL.createObjectURL(fileEvt.raw),
+                uploadTime: now.toISOString(),
+                file: fileEvt.raw
+            }
 
-            // 或者提取纯文本
-            const { value: text } = await mammoth.extractRawText({ arrayBuffer })
-            // console.log('📜 纯文本:', text)
+            fileUrl.value = html
             docVisible.value = true
             readFileToData()
         } catch (err) {
             console.error('❌ Word 解析失败:', err)
         }
+    } else {
+        console.warn('⚠️ 暂不支持的文件类型:', ext)
     }
-    reader.readAsArrayBuffer(raw)
-
 }
+
 const showPermitFile = () => {
     docVisible.value = true
 }
@@ -768,7 +1093,7 @@ function fileListDisplay(country) {
     return f ? [{ name: f.name, url: '', status: 'ready' }] : []
 }
 
-// 一键同步 overflyDetails 到 fileData
+// 一键同步 overflyDetails 到 fileData，同步飞越数据
 function syncOverflyDetails(country, flightList, overflyDetails) {
     console.log('country', country)
     console.log('flightList', flightList)
@@ -786,47 +1111,96 @@ function syncOverflyDetails(country, flightList, overflyDetails) {
     ElMessage.success(`已同步 ${country} 航班数据`)
 }
 
-// 保存
+// 保存飞越批复
 async function savePermissionData() {
+    console.log('curTaskKey', curTaskKey)
     if (!curTaskKey.value) return ElMessage.error('任务未选择')
     const season = displaySeason.value
     if (!season) return ElMessage.error('缺少航季')
 
     const permissionArr = []
-
-    for (const country of Object.keys(selectedFilesByCountry.value)) {
-        const file = selectedFilesByCountry.value[country]
-        if (!file) continue
-
+    //编辑模式
+    if (isEditing) {
+        console.log('编辑状态isEditing', isEditing)
+        // console.log('curTaskKey.value', curTaskKey.value)
+        // console.log('curTaskData.value', curTaskData.value)
+        // console.log('season', season)
+        // console.log('permissionNumbers', permissionNumbers)
+        // console.log('selectedFlights', selectedFlights)
+        const country = curCountryData.value.overflyCountry
         permissionArr.push({
             country,
             permissionNumber: permissionNumbers.value[country] || '',
             relateData: selectedFlights.value[country] || [],
             fileData: fileDataByCountry.value[country] || [],
-            fileName: file.name
-        })
-    }
 
-    if (permissionArr.length === 0) return ElMessage.error('请上传至少一个批复文件')
+            // fileName: file.name
+        })
+        // console.log('curTaskKey.value',curTaskKey.value)
+
+    }
+    //新增模式
+    else {
+        for (const country of Object.keys(selectedFilesByCountry.value)) {
+            const file = selectedFilesByCountry.value[country]
+            if (!file) continue
+
+            permissionArr.push({
+                country,
+                permissionNumber: permissionNumbers.value[country] || '',
+                relateData: selectedFlights.value[country] || [],
+                fileData: fileDataByCountry.value[country] || [],//文件批复数据
+
+                // fileName: file.name
+            })
+
+
+        }
+    }
+    // return
+
+
+    if (permissionArr.length === 0 && !isEditing) return ElMessage.error('请上传至少一个批复文件')
 
     const formData = new FormData()
-
+    console.log('待上传的批复文件', curPermitFile.value)
+    // return
+    const originalFile = curPermitFile.value
+    //组装数据
+    // const permissionKey = generatePermissionKey(season, curTaskKey.value, curCountryData.value.overflyCountry);
+    formData.append('country', curCountryData.value.overflyCountry)
     formData.append('taskKey', curTaskKey.value)
     formData.append('id', curTaskData.value.id)
+    formData.append('permissionId', curPermitId.value)
     formData.append('season', season)
     formData.append('permissionData', JSON.stringify(permissionArr))
-
+    formData.append('isEditing', isEditing.value)
+    // formData.append('files',originalFile.file)//批复的原始文件
+    formData.append('files', originalFile.file)
     // 附加文件
-    permissionArr.forEach(item => {
-        formData.append('files', selectedFilesByCountry.value[item.country])
-    })
+    // if (!isEditing) {
+    //     permissionArr.forEach(item => {
+    //         formData.append('files', selectedFilesByCountry.value[item.country])
+    //     })
+    // }
+
 
     try {
+        for (const [key, value] of formData.entries()) {
+            console.log(key, value)
+        }
+        // return
         const res = await updatePermission(formData)
         if (res.data?.success) {
 
             ElMessage.success('保存成功')
             windowVisible.value = false
+            emit('upload-success', res.data?.data)
+            const permissionUpdated = await getPermission()
+            const taskUpdated = await getTaskList()
+            console.log('更新后的permission', permissionUpdated)
+            console.log('taskUpdated', taskUpdated)
+
         } else {
             ElMessage.error(res.data?.message || '保存失败')
         }
@@ -834,7 +1208,14 @@ async function savePermissionData() {
         console.error(err)
         ElMessage.error('请求出错')
     }
+
 }
+// function generatePermissionKey(season, taskKey, country) {
+//         const raw = `${season}-${taskKey}-${country}`; // 拼接基础信息
+//         const hash = crypto.createHash('md5').update(raw).digest('hex'); // 生成 MD5 哈希
+//         return `perm_${hash.slice(0, 12)}`; // 截取前 12 位，前缀可自定义
+//     }
+
 </script>
 <style lang="scss">
 .dataBox {

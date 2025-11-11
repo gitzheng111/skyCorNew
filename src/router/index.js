@@ -51,6 +51,12 @@ const routes = [
     name: 'aircraftManage',
     component: () => import('/src/views/aircraftManage.vue')
    
+  },
+  {
+    path: '/infoCenter',
+    name: 'infoCenter',
+    component: () => import('/src/views/infoCenter.vue')
+   
   }
 ]
 

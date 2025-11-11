@@ -1,6 +1,8 @@
 <template>
+    <!-- <Searcher mode="overflyData" :list="overflyData" @update:result="filteredData = $event" /> -->
+
     <SeasonSelect v-model="curSeason" />
-    <el-button @click="addOverflyData">新增飞越数据</el-button>
+    <!-- <el-button @click="addOverflyData">新增飞越数据</el-button> -->
     <el-tabs v-model="clickCountry" @tab-click="changeCountry">
         <el-tab-pane v-for="(ovfData, index) in overflyData" :key="index">
             <template #label>
@@ -9,14 +11,18 @@
 
                 </span>
             </template>
-            <div v-if="getSeasonData(ovfData)">
-                <overflyDataView :mode="'forever'" :overflyDataFromFather="getSeasonData(ovfData)" :allData="ovfData"
-                    :curSeason="curSeason" @updateFinish="refreshOverflyData" />
+            <div v-if="clickCountry === String(index)">
+                <div v-if="seasonDataMap[ovfData.country]">
+                    <overflyDataView :mode="'forever'" :editShow="true"
+                        :overflyDataFromFather="seasonDataMap[ovfData.country]" :allData="ovfData"
+                        :curSeason="curSeason" :countryData="selectCountryData" @updateFinish="refreshOverflyData" />
 
+                </div>
+                <div v-else class="text-gray-500">
+                    暂无{{ curSeason }}航季数据
+                </div>
             </div>
-            <div v-else class="text-gray-500">
-                暂无{{ curSeason }}航季数据
-            </div>
+
 
         </el-tab-pane>
     </el-tabs>
@@ -24,10 +30,12 @@
 </template>
 
 <script setup>
-import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getOverflyData,updateRoutes } from '../api.js';
+import { getFlights, getRoutes, getPermission, baseURL, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getOverflyData, updateRoutes } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SeasonSelect from '../utils/seasonSelect.vue'
+import Searcher from '../utils/searcher.vue'
+
 import { currentSeasonData } from '../utils/season.js'
 import overflyDataView from '../utils/overflyDataView.vue'
 import { useRoute } from 'vue-router';
@@ -38,7 +46,12 @@ import { useRouter } from 'vue-router'
 // import { defineStore } from 'pinia'
 import { useOverflyStore } from '../store/overfly.js'
 import { parseOverflyData, mergeRouteWithOverflyData } from '../utils/fileParser.js'; // 引入解析文件的工具函数
+import { useLoading } from '../plugins/loading'
+import { useSeasonData } from '../components/useSeasonUtils'
 
+const { todaySeason } = useSeasonData()
+// 
+const loading = useLoading()
 const clickCountry = ref()
 const curCountry = ref()
 const router = useRouter()
@@ -49,6 +62,7 @@ const countryData = ref(null)
 const filteredOverfly = ref(null)
 const curSeason = ref(null)
 const findData = ref(null)
+const selectCountryData = ref()
 const getSeasonData = (countryData) => {
     if (!countryData || !curSeason.value) return null;
 
@@ -57,11 +71,23 @@ const getSeasonData = (countryData) => {
     // console.log('seasonData', seasonData)
     return seasonData?.data || null;
 }
+const seasonDataMap = computed(() => {
+    const map = {}
+    if (!overflyData.value || !curSeason.value) return map
+    overflyData.value.forEach(country => {
+        const found = country.data.find(d => d.season === curSeason.value)
+        map[country.country] = found ? found.data : null
+    })
+    return map
+})
 const changeCountry = (country) => {
     const index = clickCountry.value
     const selectedItem = overflyData.value[index]
     curCountry.value = selectedItem.country;
+    selectCountryData.value = countryData.value.find(item => item.country == selectedItem.country)
     console.log('点击后的country', selectedItem)
+    console.log('selectCountryData', selectCountryData.value)
+
     //当前国家申请数据
     // curCountry.value = selectedItem.overflyCountry
 
@@ -70,17 +96,24 @@ const changeCountry = (country) => {
 }
 const initData = async () => {
     try {
+        loading.show('加载飞越航路数据')
         const routeResponse = await getRoutes();
         routesData.value = routeResponse.data;
 
         const countryResponse = await getCountryRules();
         countryData.value = countryResponse.data;
-
         const overflyResponse = await getOverflyData();
         overflyData.value = overflyResponse.data;
         clickCountry.value = '0'
         const selectedItem = overflyData.value[clickCountry.value]
         curCountry.value = selectedItem.country;
+        selectCountryData.value = countryData.value.find(item => item.country == selectedItem.country)
+        const initOvfData = overflyData.value.find(item => item.country == selectedItem.country)
+        curSeason.value = todaySeason.value.en
+        console.log('initOvfData', initOvfData)
+        console.log('curSeason', curSeason.value)
+        getSeasonData(initOvfData)
+        loading.hide()
         console.log('数据初始化完成', { routesData, countryData, overflyData, curCountry });
     } catch (error) {
         console.error('API error:', error);
@@ -91,6 +124,8 @@ const mergedRoutes = ref()
 const updatedRouteIds = new Set()
 
 const refreshOverflyData = async () => {
+    loading.show('加载飞越航路数据')
+
     const overflyResponse = await getOverflyData()
     overflyData.value = overflyResponse.data
     const routeResponse = await getRoutes()
@@ -120,6 +155,7 @@ const refreshOverflyData = async () => {
     // 正确写法
     overflyStore.setNeedRefresh(true)
     console.log('overflyStore', overflyStore.needRefresh) // true
+    loading.hide()
 }
 
 const updateRoutesWithOverflyData = (routes, overflyData, targetCountry, curSeason) => {

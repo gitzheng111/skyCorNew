@@ -9,9 +9,12 @@ export function useSeasonData() {
 
   const seasonData = ref([result.current, result.next])
   const curSeason = ref(result.current)
+  const todaySeason = ref(result.current)
+
   // console.log('seasonData',seasonData)
   return {
     seasonData,
-    curSeason
+    curSeason,
+    todaySeason
   }
 }

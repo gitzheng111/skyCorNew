@@ -16,6 +16,7 @@ export const getAirportCode = () => api.get('/airportCode');
 export const getCountryRules = () => api.get('/country');
 export const getTaskList = () => api.get('/taskList');
 export const getOverflyData = () => api.get('/overflyData');
+export const getInfoCenter = () => api.get('/infoCenter');
 
 // export const addFlights = (addFlightForm) => api.get(
 //   `/flights/add?flight_number=${addFlightForm.flightNumber}&departure=${addFlightForm.departure}`
@@ -36,6 +37,7 @@ export const addRoutes = (routeForm) => api.post('/routes/add', routeForm, {
 export const addOverflyData = (form) => api.post('/overflyData/add', form);
 export const addAirportCode = (form) => api.post('/airportCode/addBatch', form);
 export const addAircraftType = (form) => api.post('/aircraftType/addBatch', form);
+export const addInfoCenter = (form) => api.post('/infoCenter/addBatch', form);
 
 // export const addAirportCode = (form) => api.post('/country/addAirport', form);
 // export const addAirportCode = (formData) => {
@@ -79,7 +81,9 @@ export const deleteCountryByIds = (ids) => {
 export const deleteTaskByIds = (ids) => {
   return api.post('/taskList/delete', { ids });
 };
-
+export const deletePermissionByIds = (ids) => {
+  return api.post('/permission/delete', { ids });
+};
 // export const deleteFlights = (flight_id) => api.delete(`/flights/delete?flight_id=${flight_id}`);
 export const deleteFlights = (flight_id) => api.delete(`/flights/delete/${flight_id}`);
 export const deleteAirportByIds = (ids) => {
@@ -108,3 +112,4 @@ export const fetchTaskList = async () => {
 }
 
 export const attributeData = ref([{ 'name': '定期', 'attribute': 'schedule' },  { 'name': '加班', 'attribute': 'non-schedule' }])
+export const attributionOptionFromAPI= ref([{ label: '定期', value: 'schedule' },  { label: '非定期', value: 'non-schedule' }])

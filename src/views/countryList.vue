@@ -9,31 +9,50 @@
     <el-table :data="filteredData" style="width: 100%" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column label="国家" prop="country" width="80"></el-table-column>
+        <el-table-column label="是否需要申请" width="80">
+            <template #default="{ row }">
+                <el-tag :type="row.needApply == '1' ? 'danger' : 'primary'">
+                    {{ row.needApply == '1' ? '是' : '否' }}
+                </el-tag>
+            </template>
+
+        </el-table-column>
+        <el-table-column label="变更申请">
+            <template #default="{ row }">
+                <el-tag :type="row.changeApply?.changeRoute ? 'danger' : 'success'">改航{{
+                    row.changeApply?.changeRoute ? '用' : '不用' }}申请</el-tag>
+                <el-tag :type="row.changeApply?.changeFlightNumber ? 'danger' : 'success'">改航班号{{
+                    row.changeApply?.changeFlightNumber ? '用' : '不用' }}申请</el-tag>
+
+            </template>
+        </el-table-column>
+
         <el-table-column label="联系方式" width="220">
             <template #default="{ row }">
-                <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;" v-for="item in row.contactInfo"
+                    :key="item">
                     <!-- 邮箱 -->
-                    <div v-if="getEmails(row.contactInfo).length">
+                    <div>
                         <span style="margin-right: 6px;">邮箱：</span>
-                        <el-tag v-for="(email, idx) in getEmails(row.contactInfo)" class="contactInfoTag"
-                            :key="'email-' + idx" type="success" disable-transitions @click="copyToClipboard(email)">
-                            {{ email }}
+                        <el-tag class="contactInfoTag" :key="'email-' + idx" type="success" disable-transitions
+                            @click="copyToClipboard(item.email)">
+                            {{ item.email }}
                         </el-tag>
                     </div>
 
                     <!-- 电话 -->
-                    <div v-if="getPhones(row.contactInfo).length">
+                    <div>
                         <span style="margin-right: 6px;">电话：</span>
-                        <el-tag v-for="(phone, idx) in getPhones(row.contactInfo)" class="contactInfoTag"
-                            :key="'phone-' + idx" type="info" disable-transitions @click="copyToClipboard(phone)">
-                            {{ phone }}
+                        <el-tag class="contactInfoTag" :key="'phone-' + idx" type="info" disable-transitions
+                            @click="copyToClipboard(item.phone)">
+                            {{ item.phone ? item.phone : '未录入' }}
                         </el-tag>
                     </div>
                 </div>
             </template>
         </el-table-column>
         <!-- <el-table-column label="申请需求" prop="applyRequire"></el-table-column> -->
-        <el-table-column label="批复件规则" prop="permitRules"></el-table-column>
+        <!-- <el-table-column label="批复规则" prop="permitRules"></el-table-column> -->
         <el-table-column label="定期航班申请件" prop="scheduleTemplate" show-overflow-tooltip>
 
             <template #default="{ row }">
@@ -91,15 +110,32 @@
                 <el-input v-model="editCountryData.country" />
             </el-form-item>
             <el-form-item label="联系方式">
-                <div v-for="(item, index) in editCountryData.contactInfo" :key="index" style="margin-bottom: 8px;">
-                    <el-input v-model="editCountryData.contactInfo[index]" :placeholder="'输入邮箱或电话'"
-                        @blur="validateContact(index)" />
-                    <el-button type="danger" @click="removeContact(index)">删除</el-button>
-                </div>
+                <template v-if="editCountryData.contactInfo && Array.isArray(editCountryData.contactInfo)">
+                    <div v-for="(item, index) in (editCountryData.contactInfo || [])" :key="index" class="contact-item"
+                        style="margin-bottom: 8px;">
+                        <el-input v-model="item.email" placeholder="邮箱" style="width: 45%; margin-right: 10px;" />
+                        <el-input v-model="item.phone" placeholder="电话" style="width: 45%;" />
+                        <el-button type="danger" @click="removeContact(index)">删除</el-button>
+                    </div>
+                </template>
                 <el-button type="primary" @click="addContact">添加联系方式</el-button>
+
+                <!-- <el-button type="primary" @click="addContact">添加联系方式</el-button> -->
             </el-form-item>
             <el-form-item label="是否需要申请">
                 <el-radio-group v-model="needApply">
+                    <el-radio :value="true" size="large">需要</el-radio>
+                    <el-radio :value="false" size="large">不需要</el-radio>
+                </el-radio-group>
+            </el-form-item>
+            <el-form-item label="改航是否需要申请">
+                <el-radio-group v-model="editCountryData.changeApply.changeRoute">
+                    <el-radio :value="true" size="large">需要</el-radio>
+                    <el-radio :value="false" size="large">不需要</el-radio>
+                </el-radio-group>
+            </el-form-item>
+            <el-form-item label="改航班号是否需要申请">
+                <el-radio-group v-model="editCountryData.changeApply.changeFlightNumber">
                     <el-radio :value="true" size="large">需要</el-radio>
                     <el-radio :value="false" size="large">不需要</el-radio>
                 </el-radio-group>
@@ -111,7 +147,22 @@
 
                         <div v-for="field in item.fields" :key="field.section" class="field-group">
                             <h4 class="field-section">{{ field.section }}</h4>
-                            <el-checkbox v-model="checkAll" :indeterminate="isIndeterminate"
+                            <el-checkbox v-model="checkAllMap[item.type][field.section]"
+                                :indeterminate="isIndeterminateMap[item.type][field.section]"
+                                @change="(val) => handleCheckAllChange(item.type, field.section, field.items, val)"
+                                :disabled="!needApply">
+                                全选
+                            </el-checkbox>
+
+                            <el-checkbox-group v-model="selectedApplyRequire[item.type][field.section]"
+                                class="checkbox-group"
+                                @change="() => handleCheckedChange(item.type, field.section, field.items)"
+                                :disabled="!needApply">
+                                <el-checkbox v-for="option in field.items" :key="option" :label="option">
+                                    {{ option }}
+                                </el-checkbox>
+                            </el-checkbox-group>
+                            <!-- <el-checkbox v-model="checkAll" :indeterminate="isIndeterminate"
                                 @change="handleCheckAllChange" :disabled="!needApply">
                                 全选
                             </el-checkbox>
@@ -120,7 +171,7 @@
                                 <el-checkbox v-for="option in field.items" :key="option" :label="option">
                                     {{ option }}
                                 </el-checkbox>
-                            </el-checkbox-group>
+                            </el-checkbox-group> -->
                         </div>
                     </el-card>
                 </div>
@@ -196,6 +247,7 @@ import { fixEncoding } from '../utils/fileNameEncode.js'
 import filePreview from '../utils/filePreview.vue'
 import Searcher from '../utils/searcher.vue'
 import { useLoading } from '../plugins/loading'
+import { template } from 'lodash-es';
 
 const loading = useLoading()
 
@@ -213,18 +265,21 @@ const checkAll = ref(false)
 const filteredData = ref([])
 const needApply = ref(true)
 const isIndeterminate = ref(true)
+const checkAllMap = reactive({})
+const isIndeterminateMap = reactive({})
+const selectedApplyRequire = reactive({})
 const applyTemplates = [
     {
         type: '定期',
         fields: [
             { section: 'flightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
-            { section: 'route', items: ['entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
+            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
         ]
     }, {
         type: '非定期',
         fields: [
             { section: 'flightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
-            { section: 'route', items: ['entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
+            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
         ]
     },
     {
@@ -233,32 +288,65 @@ const applyTemplates = [
             { section: 'flightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
             { section: 'newFlightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
 
-            { section: 'route', items: ['entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] },
-            { section: 'newRoute', items: ['entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
+            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] },
+            { section: 'newRoute', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
         ]
     }
 ]
-const handleCheckAllChange = (val) => {
+function handleCheckAllChange(type, section, items, val) {
+    selectedApplyRequire[type][section] = val ? [...items] : []
+    isIndeterminateMap[type][section] = false
+}
+// const handleCheckAllChange = (val) => {
+//     selectedApplyRequire[type][section] = val ? [...items] : []
+//     isIndeterminateMap[type][section] = false
+//     // applyTemplates.forEach(t => {
+//     //     t.fields.forEach(f => {
+//     //         selectedApplyRequire[t.type][f.section] = val ? [...f.items] : []
+//     //     })
+//     // })
+//     // checkAll.value = val
+//     // isIndeterminate.value = false
+// }
+function handleCheckedChange(type, section, items) {
+    const checkedCount = selectedApplyRequire[type][section].length
+    checkAllMap[type][section] = checkedCount === items.length
+    isIndeterminateMap[type][section] =
+        checkedCount > 0 && checkedCount < items.length
+}
+function initSelectedApplyRequire() {
+    // applyTemplates.forEach(t => {
+    //     selectedApplyRequire[t.type] = {}
+    //     t.fields.forEach(f => {
+    //         selectedApplyRequire[t.type][f.section] = []
+    //     })
+    // })
     applyTemplates.forEach(t => {
+        selectedApplyRequire[t.type] = {}
+        checkAllMap[t.type] = {}
+        isIndeterminateMap[t.type] = {}
+
         t.fields.forEach(f => {
-            selectedApplyRequire[t.type][f.section] = val ? [...f.items] : []
+            selectedApplyRequire[t.type][f.section] = []
+            checkAllMap[t.type][f.section] = false
+            isIndeterminateMap[t.type][f.section] = false
         })
     })
-    checkAll.value = val
-    isIndeterminate.value = false
 }
-const handleCheckedChange = () => {
-    const totalItems = applyTemplates.reduce((sum, t) => {
-        return sum + t.fields.reduce((s, f) => s + f.items.length, 0)
-    }, 0)
+initSelectedApplyRequire()
+// const handleCheckedChange = () => {
+//     const totalItems = applyTemplates.reduce((sum, t) => {
+//         return sum + t.fields.reduce((s, f) => s + f.items.length, 0)
+//     }, 0)
 
-    const checkedCount = applyTemplates.reduce((sum, t) => {
-        return sum + t.fields.reduce((s, f) => s + selectedApplyRequire[t.type][f.section].length, 0)
-    }, 0)
+//     const checkedCount = applyTemplates.reduce((sum, t) => {
+//         return sum + t.fields.reduce((s, f) => s + selectedApplyRequire[t.type][f.section].length, 0)
+//     }, 0)
 
-    checkAll.value = checkedCount === totalItems
-    isIndeterminate.value = checkedCount > 0 && checkedCount < totalItems
-}
+//     checkAll.value = checkedCount === totalItems
+//     isIndeterminate.value = checkedCount > 0 && checkedCount < totalItems
+//     console.log('selectedApplyRequire', selectedApplyRequire)
+// }
 const handleFileChange = (uploadFile, key) => {
     const file = uploadFile.raw
     console.log('文件选择:', key, file)
@@ -296,22 +384,18 @@ const getPhones = (contactList) => {
     return contactList.filter((item) => !/@/.test(item));
 };
 const copyToClipboard = (text) => {
+    if (!text) {
+        ElMessage.warning('无数据')
+        return
+    }
     navigator.clipboard.writeText(text).then(() => {
         ElMessage.success('已复制：' + text)
     }).catch(() => {
         ElMessage.error('复制失败')
     })
 }
-const selectedApplyRequire = reactive({})
-function initSelectedApplyRequire() {
-    applyTemplates.forEach(t => {
-        selectedApplyRequire[t.type] = {}
-        t.fields.forEach(f => {
-            selectedApplyRequire[t.type][f.section] = []
-        })
-    })
-}
-initSelectedApplyRequire()
+// const selectedApplyRequire = reactive({})
+
 
 const saveCountry = async () => {
     const country = editCountryData.value.country?.trim()
@@ -323,10 +407,9 @@ const saveCountry = async () => {
     const formData = new FormData()
     formData.append('country', country)
     // formData.append('applyRequire', JSON.stringify(editCountryData.value.applyRequire || []))
-    formData.append('contactInfo', JSON.stringify(editCountryData.value.contactInfo || ''))
-    formData.append('permitRules', JSON.stringify(editCountryData.value.permitRules ||
-        []))
-    formData.append('applyRequire', JSON.stringify(selectedApplyRequire || ''))
+    formData.append('contactInfo', JSON.stringify(editCountryData.value?.contactInfo || []))
+    // formData.append('permitRules', JSON.stringify(editCountryData.value?.permitRules || []))
+    // formData.append('applyRequire', JSON.stringify(selectedApplyRequire || ''))
     formData.append('needApply', needApply.value)
 
 
@@ -359,7 +442,9 @@ const saveCountry = async () => {
 
         if (!needApply.value) {
             // 清空或设置为null
-            formData.set('applyRequire', JSON.stringify([])) // 保持为空数组
+            formData.set('applyRequire', JSON.stringify([]))
+            formData.set('changeApply', JSON.stringify([]))// 保持为空数组
+
             formData.append('nonScheduleTemplate', 'null')  // 保持为空
             formData.append('permitRules', '[]')  // 保持为空数组
             formData.append('scheduleChangeFlightNumberTemplate', 'null')  // 保持为空
@@ -373,6 +458,10 @@ const saveCountry = async () => {
             formData.append('scheduleChangeFlightNumberTemplate', editCountryData.value.scheduleChangeFlightNumberTemplate)
             formData.append('scheduleChangeRouteTemplate', editCountryData.value.scheduleChangeRouteTemplate)
             formData.append('scheduleTemplate', (editCountryData.value.scheduleTemplate))
+            formData.append('changeApply', JSON.stringify(editCountryData.value?.changeApply || {
+                changeRoute: false,
+                changeFlightNumber: false
+            }))
         }
         for (let [key, value] of formData.entries()) {
             console.log(`${key}:`, value);
@@ -388,9 +477,9 @@ const saveCountry = async () => {
         }
         ElMessage.success('保存成功')
         showCountryList.value = false
+        refreshCountry()
 
-        const res = await getCountryRules()
-        countryList.value = res.data
+
         console.log('新的countryList', countryList.value)
     } catch (err) {
         console.error('保存失败', err)
@@ -398,11 +487,35 @@ const saveCountry = async () => {
     }
 }
 const isEditMode = ref(false)
+const refreshCountry = async () => {
+    const res = await getCountryRules()
 
+    countryList.value = res.data
+    const newResponse = countryList.value.map(item => {
+        try {
+            item.contactInfo = item.contactInfo
+                ? JSON.parse(item.contactInfo)
+                : []; // 或者 null，看你想要什么默认值
+            item.changeApply = JSON.parse(item.changeApply)
+        } catch (e) {
+            console.warn('contactInfo 解析失败：', item.contactInfo);
+            item.contactInfo = [];
+        }
+        return item;
+    });
+    filteredData.value = newResponse
+}
 const editCountry = (id) => {
     isEditMode.value = true
     showCountryList.value = true
     editCountryData.value = countryList.value.find(item => item.id == id)
+    if (!editCountryData.value.changeApply) {
+        editCountryData.value.changeApply = {
+            changeRoute: false,
+            changeFlightNumber: false
+        };
+    }
+
     console.log('editCountryData', editCountryData)
 }
 const addCountry = () => {
@@ -417,14 +530,18 @@ const addCountry = () => {
         scheduleChangeFlightNumberTemplate: {},
         scheduleChangeRouteTemplate: {},
         scheduleTemplate: {},
-        needApply: needApply.value
+        needApply: needApply.value,
+        changeApply: []
     }
     showCountryList.value = true
 
 }
 
 const addContact = () => {
-    editCountryData.value.contactInfo.push('')
+    if (!Array.isArray(editCountryData.value.contactInfo)) {
+        editCountryData.value.contactInfo = []
+    }
+    editCountryData.value.contactInfo.push({ email: '', phone: '' })
 }
 
 const removeContact = (index) => {
@@ -553,9 +670,35 @@ onMounted(async () => {
     try {
         loading.show('正在加载飞越国家数据，请稍候...')
         const countryResponse = await getCountryRules();
+
         countryList.value = countryResponse.data
-        filteredData.value = countryList.value
+        const newResponse = countryList.value.map(item => {
+            if (!item.changeApply) {
+                console.log('赋值变更值')
+                item.changeApply = {
+                    changeRoute: false,
+                    changeFlightNumber: false,
+                };
+            }
+            try {
+                item.contactInfo = item.contactInfo
+                    ? JSON.parse(item.contactInfo)
+                    : []; // 或者 null，或什么默认值
+                item.changeApply = JSON.parse(item.changeApply)
+                item.applyRequire = JSON.parse(item.applyRequire)
+
+            } catch (e) {
+                console.warn('contactInfo 解析失败：', item.contactInfo);
+                item.contactInfo = [];
+            }
+            return item;
+
+        });
+
+        filteredData.value = newResponse
         console.log('countryResponse:', countryList.value);
+        console.log('newResponse:', newResponse);
+
         loading.hide()
     } catch (error) {
         console.error('API error:', error);

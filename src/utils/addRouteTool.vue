@@ -6,7 +6,7 @@
 
 
 
-            <el-select v-model="mode" placeholder="请选择输入方式" style="margin-bottom: 20px;">
+            <el-select v-if="!isEditing" v-model="mode" placeholder="请选择输入方式" style="margin-bottom: 20px;">
                 <el-option v-for="item in modeOption" :key="item" :label="modeLabels[item]" :value="item" />
             </el-select>
 
@@ -289,7 +289,18 @@ const addRouteForms = ref([])
 
 const mapEditData = (data) => {
     const arrayData = Array.isArray(data) ? data : [data];
-    return arrayData.map(f => ({
+    const transferRoute = arrayData.map(item => {
+        if (typeof item.overflyCountry === 'string') {
+            try {
+                item.overflyCountry = JSON.parse(item.overflyCountry)
+            } catch (e) {
+                console.error('overflyCountry 解析失败:', item.overflyCountry)
+                item.overflyCountry = []
+            }
+        }
+        return item
+    })
+    return transferRoute.map(f => ({
         route_id: f.route_id || '',
         season: f.season || '',
         departure: f.departure || '',
@@ -809,6 +820,7 @@ const confirmConflict = async () => {
     conflictDialogVisible.value = false
 }
 // 提交
+
 const onSubmit = async () => {
     let submitData = []
     if (isEditing) {
