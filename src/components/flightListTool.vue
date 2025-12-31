@@ -8,6 +8,7 @@
             {{ hideRight ? '隐藏需申请航班' : '显示需申请航班' }}
         </el-button> -->
         <el-button :icon="Plus" @click="addFlightData">新增航班</el-button>
+        <el-button @click="editBatch" :disabled="multipleSelection.length === 0">批量编辑</el-button>
         <el-button type="danger" @click="confirmBatchDelete" :disabled="multipleSelection.length === 0">
             批量删除
         </el-button>
@@ -28,38 +29,45 @@
 
                 <el-table-column type="selection" width="55" />
 
-                <el-table-column label="航季">
+                <el-table-column label="航季" sortable :sort-method="sortBy('flightNumber', 'string')">
                     <template #default="{ row }">
                         <div>{{ row.season }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="attribution" label="性质">
+                <el-table-column label="标签" sortable :sort-method="sortBy('label', 'string')">
+                    <template #default="{ row }">
+                        <el-tag :type="row.label == '换季航班' ? 'success' : 'warning'">{{ row.label }} </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="attribution" label="性质" sortable :sort-method="sortBy('attribution', 'string')">
                     <template #default="{ row }">
                         <div>{{ row.attribution }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="flightNumber" label="航班号">
+                <el-table-column prop="flightNumber" label="航班号" sortable
+                    :sort-method="sortBy('flightNumber', 'string')">
                     <template #default="{ row }">
                         <div>{{ row.flightNumber }}</div>
                     </template>
                 </el-table-column>
 
-                <el-table-column prop="departure" label="起飞机场">
+                <el-table-column prop="departure" label="起飞机场" sortable :sort-method="sortBy('departure', 'string')">
                     <template #default="{ row }">
                         <div>{{ row.departure }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="departureTime" label="起飞时间">
+                <el-table-column prop="departureTime" label="起飞时间" sortable
+                    :sort-method="sortBy('departureTime', 'time')">
                     <template #default="{ row }">
                         <div>{{ formatTimeFree(row.departureTime, row.departure) }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="arrival" label="起飞机场">
+                <el-table-column prop="arrival" label="落地机场" sortable :sort-method="sortBy('arrival', 'string')">
                     <template #default="{ row }">
                         <div>{{ row.arrival }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="arrivalTime" label="落地时间">
+                <el-table-column prop="arrivalTime" label="落地时间" sortable :sort-method="sortBy('arrivalTime', 'time')">
                     <template #default="{ row }">
                         <div>{{ formatTimeFree(row.arrivalTime, row.arrival) }}</div>
                     </template>
@@ -86,17 +94,17 @@
                         </div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="arrivalTime" label="开始时间">
+                <el-table-column label="开始日期" sortable :sort-method="sortBy('startDate', 'datetime')">
                     <template #default="{ row }">
                         <div>{{ row.startDate }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="arrivalTime" label="结束时间">
+                <el-table-column label="结束日期" sortable :sort-method="sortBy('endDate', 'datetime')">
                     <template #default="{ row }">
                         <div>{{ row.endDate }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column prop="days" label="班期" width="200">
+                <el-table-column prop="days" label="班期" width="200" sortable>
                     <template #default="{ row }">
                         <DaysShow :days="row.days" />
 
@@ -108,31 +116,38 @@
                     <template #default="{ row }">
                         <el-tooltip effect="light" placement="top">
                             <template #content>
-                                <div v-if="aircraftTypes[row.aircraftType]">
-                                    <p>制造商: {{ aircraftTypes[row.aircraftType].manufacturer }}</p>
-                                    <p>座位数: {{ aircraftTypes[row.aircraftType].seats }}</p>
-                                    <p>航程: {{ aircraftTypes[row.aircraftType].range }} km</p>
+                                <div v-for="type in row.aircraftType" :key="type" style="margin-bottom: 8px;">
+                                    <template v-if="aircraftTypes[type]">
+                                        <strong>{{ type }}</strong>
+                                        <p>制造商: {{ aircraftTypes[type].manufacturer }}</p>
+                                        <p>座位数: {{ aircraftTypes[type].seats }}</p>
+                                        <p>航程: {{ aircraftTypes[type].range }} km</p>
+                                    </template>
+                                    <template v-else>
+                                        <strong>{{ type }}</strong>
+                                        <p>未知机型</p>
+                                    </template>
                                 </div>
-                                <div v-else>未知机型</div>
                             </template>
-                            <span>{{ row.aircraftType }}</span>
+
+                            <span>{{ row.aircraftType.join(', ') }}</span>
                         </el-tooltip>
                     </template>
                 </el-table-column>
 
-                <el-table-column label="创建时间">
+                <el-table-column label="创建时间" sortable :sort-method="sortBy('createTime', 'datetime')">
                     <template #default="{ row }">
                         {{ formatDate(row.createTime) }}
                         <!-- <daysPicker v-model="" /> -->
                     </template>
                 </el-table-column>
-                <el-table-column label="更新时间">
+                <el-table-column label="更新时间" sortable :sort-method="sortBy('updateTime', 'datetime')">
                     <template #default="{ row }">
                         {{ formatDate(row.updateTime ? row.updateTime : row.createTime) }}
                         <!-- <daysPicker v-model="" /> -->
                     </template>
                 </el-table-column>
-                <el-table-column fixed="right" label="Operations" min-width="120">
+                <el-table-column fixed="right" label="操作" min-width="120">
 
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click.stop="editFlight(row)">
@@ -198,36 +213,7 @@
                                 </div>
                             </el-collapse-item>
                         </el-collapse>
-                        <!-- <el-tabs>
-                            <el-tab-pane v-for="(route, index) in clickFlight.matchingRoutes" :key="index">
-                                <template #label>
-                                    <span>
-                                        {{ route.routeCode }}
-                                        <el-tag v-if="route.isValid == true" type="success" size="small"
-                                            effect="plain">可使用</el-tag>
-                                        <el-tag v-if="route.isValid == false & route.taskKeys?.length > 0"
-                                            type="warning" size="small" effect="plain"
-                                            @click="openTaskDialog(route.taskKeys)">正在申请</el-tag>
-                                        <el-tag v-if="route.isValid == false & route.taskKeys?.length == 0"
-                                            type="danger" size="small" effect="plain">未申请</el-tag>
-                                    </span>
-                                </template>
-                                <div>{{ route.ATSroute }}</div>
-                                <div>
-                                    <el-segmented v-model="curCountryUnderRoute"
-                                        :options="generateSegmentedOptions(route, row)"
-                                        @change="val => showOverflyDetail(route, val)" @click="checkClickCountry()" />
 
-                                </div>
-                                <div v-if="curClickCountryDetails">
-                                    <h4>飞越航路详情</h4>
-
-                                    <overflyDataView :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
-                                </div>
-
-
-                            </el-tab-pane>
-                        </el-tabs> -->
                     </div>
                     <el-empty v-else description="无匹配航路"></el-empty>
 
@@ -472,7 +458,7 @@ import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeU
 import { beijingToUTC, utcToBeijing, formatTimeWithoutColon, formatTimeWithColon, beijingToLocal } from '../utils/timeTransfer';
 import { permissionCheck } from '../utils/permissionCheckTool';
 import axios, { all } from 'axios';
-import { flightsData, addFlights, getFlights, deleteFlights, addFlightsBatchs, aircraftData, airportCodeList, attributeData, addTask, getTaskList, deleteFlightsByIds, updateRoutes, updateFlightsBatchs } from '../api';
+import { addInfoCenter, flightsData, addFlights, getFlights, deleteFlights, addFlightsBatchs, aircraftData, airportCodeList, attributeData, addTask, getTaskList, deleteFlightsByIds, updateRoutes, updateFlightsBatchs } from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { seasonCalculate, currentSeasonData } from '../utils/season.js'
 import daysPicker from '../utils/daysPicker.vue'
@@ -486,7 +472,7 @@ import Searcher from '../utils/searcher.vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
 import addFlightTool from '../utils/addFlightTool.vue'
 import overflyDataView from '../utils/overflyDataView.vue'
-import { formatDate } from '../utils/tool.js'
+import { formatDate, sortBy } from '../utils/tool.js'
 import flightCard from '../utils/flightCard.vue'
 import addDataTool from '../utils/addDataTool.vue'
 import DaysShow from '../utils/daysShow.vue'
@@ -554,7 +540,11 @@ const daysOfWeek = ['1', '2', '3', '4', '5', '6', '7']
 const today = new Date();
 const seasonData = ref([]);
 const curSeason = ref({})
-
+const sortByUpdateTime = (a, b) => {
+    const ta = new Date(a.updateTime || a.createTime).getTime()
+    const tb = new Date(b.updateTime || b.createTime).getTime()
+    return ta - tb
+}
 const isDayInSchedule = (days, dayNumber) => {
     // console.log(days,dayNumber)
     return days.includes(dayNumber.toString());
@@ -742,10 +732,42 @@ const handleProcessData = async (processedDataFromChild) => {
         ? processedDataFromChild
         : [emptyFlight()]
     console.log('父组件处理addFlightForms', addFlightForms.value)
+
+    const newValue = addFlightForms.value
+
+    const group = {
+
+        action: 'add',
+        changes: []
+    }
+    changeLogs.value.push(group)
+    // 加入 change 记录
+    group.changes.push({
+        newValue
+    })
+
+
+
     await onSubmit()
 
 }
+const messageBatch = ref([])
+const changeLogs = ref([])
+
 const onSubmit = async () => {
+    const newInfo = {
+        title: '航班更新',
+        message: { text: `增加了新航班`, detail: changeLogs.value },
+        createTime: new Date().toISOString(),
+        updateTime: new Date().toISOString(),
+        processed: 'no',//no,in progress,finish
+        type: 'flight',//flight,route,overfly
+        urgentLevel: 'normal'//normal,warning,danger
+    }
+    console.log('newInfo', newInfo)
+    messageBatch.value.push(newInfo)
+
+    // return
     console.log('addFlightForms', addFlightForms)
     const submitData = addFlightForms.value.map(row => ({ ...toRaw(row) }))
     const finalData = submitData.map(item => ({
@@ -770,7 +792,7 @@ const onSubmit = async () => {
         });
         console.log('flightResponse ====', flightResponse)
     } else {
-
+        await addInfoCenter(messageBatch.value)
         const flightResponse = await addFlightsBatchs(finalData).then(async () => {
             ElMessage.success('航班数据添加成功');
             const newFlightResponse = await getFlights();
@@ -821,7 +843,14 @@ const confirmBatchDelete = () => {
         batchDeleteFlights();
     }).catch(() => { });
 };
-
+const editBatch = () => {
+    console.log('multipleSelection', multipleSelection)
+    editDataFromFather.value = []
+    addFlightVisible.value = true
+    editFlightMode.value = true
+    editDataFromFather.value = multipleSelection.value
+    console.log('editDataFromFather', editDataFromFather.value)
+}
 // 批量删除逻辑
 const batchDeleteFlights = async () => {
     try {
@@ -896,11 +925,11 @@ function generateSegmentedOptions(route, row) {
         let label = country;
         if (needPermit == false) {
             label = `${country}（无需申请）`;
-        } else if (needPermit == true && applyStatus.status == 'none') {
+        } else if (needPermit == true && applyStatus?.status == 'none') {
             label = `${country}（未申请）`;
-        } else if (needPermit == true && applyStatus.status == 'matched' && isPermit == false) {
+        } else if (needPermit == true && applyStatus?.status == 'matched' && isPermit == false) {
             label = `${country}（正在申请）`;
-        } else if (needPermit == true && applyStatus.status == 'matched' && isPermit == true) {
+        } else if (needPermit == true && applyStatus?.status == 'matched' && isPermit == true) {
             label = `${country}（已批复）`;
         }
 

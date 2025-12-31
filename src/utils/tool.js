@@ -42,10 +42,92 @@ export const formatDate = (input) => {
   const year = date.getFullYear();
   const month = date.getMonth() + 1; // 月份从 0 开始
   const day = date.getDate();
+  const hour = date.getHours();
+  const min = date.getMinutes();
+
+  return `${year}/${month}/${day} ${hour}:${min}`;
+};
+
+export const onlyDate = (input) => {
+  if (!input) return '';
+
+  let date;
+
+  // 1. 如果是 Date 对象
+  if (input instanceof Date) {
+    date = input;
+  } else if (typeof input === 'string') {
+    // 2. 如果是 "2026年6月30" 这种中文格式
+    const zhMatch = input.match(/^(\d{4})年(\d{1,2})月(\d{1,2})/);
+    if (zhMatch) {
+      date = new Date(`${zhMatch[1]}/${zhMatch[2]}/${zhMatch[3]}`);
+    } else {
+      // 3. 其他情况直接让 Date 去解析（支持 "2025/6/30", "Sun Oct 26 2025 ..." 等）
+      date = new Date(input);
+    }
+  } else {
+    return '';
+  }
+
+  if (isNaN(date.getTime())) return ''; // 非法日期
+
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; // 月份从 0 开始
+  const day = date.getDate();
+  const hour = date.getHours();
+  const min = date.getMinutes();
 
   return `${year}/${month}/${day}`;
 };
+// 返回年月日：
+export const normalizeDate = (dateStr) => {
+  const d = new Date(dateStr.replace(/-/g, '/'))
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}/${m}/${day}`
+}
 
+export const sortBy = (field, type = 'string') => {
+  return (a, b) => {
+    const va = a[field]
+    const vb = b[field]
+
+    // 1. 处理空值：null、undefined、'' 统一放最后
+    if (!va && !vb) return 0
+    if (!va) return 1
+    if (!vb) return -1
+
+    switch (type) {
+      case 'number':
+        return Number(va) - Number(vb)
+
+      case 'time': {
+        // 格式：HH:mm
+        const ta = parseTimeToMinutes(va)
+        const tb = parseTimeToMinutes(vb)
+        return ta - tb
+      }
+
+      case 'date': {
+        // 格式：YYYY/MM/DD 或 YYYY-MM-DD
+        return new Date(va).getTime() - new Date(vb).getTime()
+      }
+
+      case 'datetime': {
+        return new Date(va).getTime() - new Date(vb).getTime()
+      }
+
+      default: // 字符串
+        return String(va).localeCompare(String(vb))
+    }
+  }
+}
+const parseTimeToMinutes = (t) => {
+  if (!t) return 0
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
 
 // export const validateFlightNumber = (flightNumber) => {
 //     const flightNumberError = ref(false)
@@ -105,6 +187,7 @@ export const validateICAO = (row) => {
     row.ICAOCode = ''; // 清空无效输入
   }
 }
+//规范周期
 export function normalizeDays(days) {
   // 转成数组数字
   let arr = Array.isArray(days) ? days : (days ? days.toString().split('').map(Number) : [])
@@ -122,6 +205,7 @@ export function normalizeDays(days) {
 
   return result
 }
+
 export const daysArrayToString = (daysArray) => {
   if (!Array.isArray(daysArray) || daysArray.length !== 7) {
     console.warn("输入必须是长度为7的数组");

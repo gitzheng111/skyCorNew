@@ -240,7 +240,7 @@ function safeJSONParse(input, maxDepth = 5) {
     }
   }
   if(depth>=1){
-    console.log('depth',depth,'data',data)
+    // console.log('depth',depth,'data',data)
 
   }
   return data;
@@ -248,7 +248,7 @@ function safeJSONParse(input, maxDepth = 5) {
 const getOverflyCountryNames = (overflyCountry) => {
   if (!overflyCountry) return '';
 
-  console.log('类型', typeof overflyCountry, 'overflyCountry', overflyCountry);
+//   console.log('类型', typeof overflyCountry, 'overflyCountry', overflyCountry);
 
   // 尝试解析成对象
   let parsed = typeof overflyCountry=='string'?safeJSONParse(overflyCountry):overflyCountry;
@@ -381,6 +381,7 @@ const handleSubmitRoutes = async (submitData) => {
             for (let i = 0; i < submitData.length; i += batchSize) {
                 const batch = submitData.slice(i, i + batchSize);
                 // await addRoutes(batch); // axios POST
+                console.log('提交的数据',submitData)
                 await addRoutes(batch, (percentCompleted) => {
                     // 更新当前批次进度
 

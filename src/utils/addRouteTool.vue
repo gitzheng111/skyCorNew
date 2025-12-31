@@ -85,9 +85,9 @@
                 <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelOverfly">
                     <el-button type="primary">上传各国飞越数据</el-button>
                 </el-upload>
-                <el-button @click="submitAllRoute">提交总航路</el-button>
+                <el-button @click="submitAllRoute">提交所有航路数据</el-button>
 
-                <el-button @click="submitOverflyData">提交飞越</el-button>
+                <el-button @click="submitOverflyData">只提交飞越数据</el-button>
                 <el-button type="warning" @click="deleteTemRouteData">清除航路数据</el-button>
                 <el-button type="warning" @click="deleteTemOverflyData">清除飞越数据</el-button>
 
@@ -167,7 +167,7 @@
             <div style="text-align: right; margin-top:20px;">
                 <el-button @click="showAddRoute = false">取消</el-button>
                 <el-button type="primary" @click="onSubmit">
-                    {{ isEditing ? '更新' : '创建' }}
+                    {{ isEditing ? '更新数据' : '提交数据' }}
                 </el-button>
             </div>
             <!-- <div v-if="props.uploading" class="progressMask">
@@ -405,17 +405,26 @@ function parseRowToRoute(row, curSeason) {
     values.forEach(val => {
         if (regexRules.sector.test(val)) {
             route.sector = val;
-        } else if (regexRules.routeCode.test(val)) {
+            const [from, to] = val.split('-');
+            route.departure = from;
+            route.arrival = to;
+            return;
+        }
+        else if (regexRules.routeCode.test(val)) {
             route.routeCode = val;
+            return;
         }
         else if (regexRules.ATSroute.test(val)) {
             // 简单判断 ATSRoute：含有字母航路点/编号
             route.ATSroute = val;
         }
         else if (regexRules.airport.test(val)) {
-            // 如果 departure 为空，先塞 departure，否则塞 arrival
-            if (!route.departure) route.departure = val;
-            else if (!route.arrival) route.arrival = val;
+            if (!route.departure) {
+                route.departure = val;
+            } else if (!route.arrival && val !== route.departure) {
+                route.arrival = val;
+            }
+            return
         } else if (/[\u4e00-\u9fa5]/.test(val)) {
             // 中文 -> 飞越国家（可能有多个）
             route.overflyCountry = val.split(/\s+/).map(c => ({ country: c }));
@@ -449,6 +458,21 @@ const handleExcelMain = (file) => {
     };
     reader.readAsArrayBuffer(file.raw);
 };
+function parseEntryExitFromATS(ATSroute) {
+    if (!ATSroute) return {};
+
+    const tokens = ATSroute.trim().split(/\s+/);
+
+    // 只保留 waypoint（排除航路号 M753 这种）
+    const waypoints = tokens.filter(t => regexRules.waypoint.test(t));
+
+    if (waypoints.length === 0) return {};
+
+    return {
+        entryPoint: waypoints[0],
+        exitPoint: waypoints[waypoints.length - 1]
+    };
+}
 function normalize(input) {
     if (!input) return "";
     return input
@@ -512,6 +536,10 @@ function parseRowToModel(row, curSeason) {
         }
         else if (regexRules.ATSroute.test(val)) {
             route.ATSroute = val;
+            const { entryPoint, exitPoint } = parseEntryExitFromATS(val);
+
+            if (entryPoint) route.entryPoint = entryPoint;
+            if (exitPoint) route.exitPoint = exitPoint;
         }
         else if (regexRules.speed.test(normalize(val))) {
             // console.log('speedRow',val)
@@ -524,8 +552,11 @@ function parseRowToModel(row, curSeason) {
         } else if (regexRules.airport.test(val)) {
             // departure/arrival 已由 sector 拆出，这里可忽略或做校验
         } else if (regexRules.waypoint.test(val)) {
+            if (route.ATSroute) return;
+
             if (!route.entryPoint) {
                 route.entryPoint = val;   // 第一个 → 入境点
+
             } else if (!route.exitPoint) {
                 route.exitPoint = val;    // 第二个 → 出境点
             }
@@ -823,7 +854,8 @@ const confirmConflict = async () => {
 
 const onSubmit = async () => {
     let submitData = []
-    if (isEditing) {
+    console.log('isEditing', isEditing)
+    if (isEditing.value == true) {
         submitData = addRouteForms.value.map(row => {
             return {
                 ...toRaw(row),
@@ -831,6 +863,7 @@ const onSubmit = async () => {
             }
         });
     } else {
+        console.log('提交的mergedRoutes', mergedRoutes.value)
         submitData = mergedRoutes.value.map(row => {
             return {
                 ...toRaw(row),
@@ -839,7 +872,7 @@ const onSubmit = async () => {
         });
     }
 
-    console.log('submitData', submitData)
+    console.log('传给父组件submitData', submitData)
     emit('submit', submitData)
 }
 </script>

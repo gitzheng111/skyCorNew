@@ -78,11 +78,11 @@ const fileIcon = ref(Document)
 const fileLetter = ref('F') // 默认 File
 
 watch(() => props.file, (val) => {
-  console.log('val', val)
+  // console.log('val', val)
 
   const fileName = val.name
   const ext = fileName.split('.').pop().toLowerCase()
-  console.log('ext', ext)
+  // console.log('ext', ext)
   const styleMap = {
     pdf: { color: '#e74c3c', letter: 'P' },
       doc: { color: '#2a5699', letter: 'W' },

@@ -3,7 +3,7 @@
     <div v-if="inline">
         <div v-loading="loading" style="height: 80vh;overflow: auto;width: 100%;">
             <!-- Word 预览 -->
-            <vue-office-docx  v-if="previewType === 'docx' && previewContent" :src="previewContent"
+            <vue-office-docx v-if="previewType === 'docx' && previewContent" :src="previewContent"
                 class="office-preview" />
         </div>
     </div>
@@ -43,7 +43,7 @@ const fileName = ref('文件预览')
 const props = defineProps({
     file: Object,
     visible: Boolean,
-    inline:Boolean
+    inline: Boolean
 
 })
 // console.log('预览的文件',props.file)
@@ -57,69 +57,173 @@ const previewType = ref('')
 const previewContent = ref(null)
 const loading = ref(false)
 
+// watch(
+//     () => props.file,
+//     async (file) => {
+//         if (!file) return
+//         // console.log('预览的文件',file)
+//         if (file.source == 'net') {
+//             // console.log('读取网络file', file)
+
+//             if (!file?.url || !file.name) return
+//             // fileName.value = fixEncoding(file.name)
+//             fileName.value = file.name
+//             const ext = file.name.split('.').pop().toLowerCase()
+//             // console.log('ext', ext)
+//             previewType.value = ext
+//             // console.log('previewType', previewType)
+//             loading.value = true
+//             const encodedURL = encodeURI(file.url)
+
+//             try {
+//                 if (ext === 'pdf') {
+//                     previewContent.value = encodedURL
+//                 } else if (ext === 'docx') {
+//                     const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
+
+//                     previewContent.value = buffer
+//                     // console.log('previewContent', previewContent.value)
+//                     await extractDocxVariables(buffer)
+//                 } else if (ext === 'xlsx') {
+//                     const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
+//                     previewContent.value = buffer
+//                     await extractXlsxVariables(buffer)
+//                 } else {
+//                     previewContent.value = null
+//                 }
+//             } catch (e) {
+//                 console.error('预览失败', e)
+//             } finally {
+//                 loading.value = false
+//             }
+//         } else if (file.source == 'local' && file.file instanceof File) {
+//             console.log('1', file)
+//             fileName.value = file.file.name
+//             const blobUrl = URL.createObjectURL(file.file)
+//             previewContent.value = blobUrl
+
+//             // =============== 已有 blob URL ==================
+//         } else if (file.source == 'local' && file.URL && file.URL.startsWith('blob:')) {
+//             console.log('2', file)
+
+//             fileName.value = file.name || 'localfile'
+//             const ext = file.type
+
+//             if (ext === 'pdf') {
+//                 const blobUrl = URL.createObjectURL(file.file)
+//                 previewContent.value = blobUrl
+//             } else if (['docx', 'xlsx'].includes(ext)) {
+//                 // const buffer = await file.URL.arrayBuffer()
+//                 const response = await fetch(file.URL)
+//                 const buffer = await response.arrayBuffer()
+//                 previewContent.value = buffer
+
+//             }
+//             // previewContent.value = file.URL
+//             console.log('previewContent', previewContent)
+
+//             // =============== 原始 File 直接传入 ==================
+//         } else if (file instanceof File) {
+//             console.log('3', file)
+
+//             fileName.value = file.name
+//             const blobUrl = URL.createObjectURL(file)
+//             previewContent.value = blobUrl
+
+
+//             // ===============  兜底 ==================
+//         } else {
+//             console.warn('无法识别文件格式', file)
+//             previewContent.value = null
+//         }
+
+
+//     },
+//     { immediate: true }
+// )
 watch(
-    () => props.file,
-    async (file) => {
-        if (!file) return
-        // console.log('预览的文件',file)
-        if (file.source == 'net') {
-            // console.log('读取网络file', file)
+  () => props.file,
+  async (file) => {
+    if (!file) return
+    console.log('预览文件:', file)
 
-            if (!file?.url || !file.name) return
-            // fileName.value = fixEncoding(file.name)
-            fileName.value = file.name
-            const ext = file.name.split('.').pop().toLowerCase()
-            // console.log('ext', ext)
-            previewType.value = ext
-            // console.log('previewType', previewType)
-            loading.value = true
-            const encodedURL = encodeURI(file.url)
+    loading.value = true
+    try {
+      if (file.source === 'net') {
+        // 🌐 网络文件
+        if (!file.url || !file.name) return
+        fileName.value = file.name
+        const ext = file.name.split('.').pop().toLowerCase()
+        previewType.value = ext
+        const encodedURL = encodeURI(file.url)
 
-            try {
-                if (ext === 'pdf') {
-                    previewContent.value = encodedURL
-                } else if (ext === 'docx') {
-                    const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
-
-                    previewContent.value = buffer
-                    // console.log('previewContent', previewContent.value)
-                    await extractDocxVariables(buffer)
-                } else if (ext === 'xlsx') {
-                    const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
-                    previewContent.value = buffer
-                    await extractXlsxVariables(buffer)
-                } else {
-                    previewContent.value = null
-                }
-            } catch (e) {
-                console.error('预览失败', e)
-            } finally {
-                loading.value = false
-            }
+        if (ext === 'pdf') {
+          previewContent.value = encodedURL
+        } else if (ext === 'docx') {
+          const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
+          previewContent.value = buffer
+          await extractDocxVariables(buffer)
+        } else if (ext === 'xlsx') {
+          const buffer = await fetch(encodedURL).then(res => res.arrayBuffer())
+          previewContent.value = buffer
+          await extractXlsxVariables(buffer)
         } else {
-
-            // console.log('读取本地file', file)
-            console.log('读取本地文档',file)
-            const ext = file.name?.split('.').pop().toLowerCase() || ''
-            previewType.value = ext
-            loading.value = true
-            try {
-                const localFile = file.file instanceof File ? file.file : file
-
-                const blobUrl = URL.createObjectURL(localFile)
-                previewContent.value = blobUrl
-                // previewContent.value = file.URL
-                // console.log('previewContent',previewContent.value)
-            } catch (e) {
-                console.error('预览失败', e)
-                previewContent.value = null
-            } finally {
-                loading.value = false
-            }
+          previewContent.value = null
         }
 
-    },
-    { immediate: true }
+      } else if (file.source === 'local' && file.file instanceof File) {
+        // 💾 本地 File 对象
+        fileName.value = file.file.name
+        const ext = fileName.value.split('.').pop().toLowerCase()
+        previewType.value = ext
+
+        if (ext === 'pdf') {
+          previewContent.value = URL.createObjectURL(file.file)
+        } else if (['docx', 'xlsx'].includes(ext)) {
+          const buffer = await file.file.arrayBuffer()
+          previewContent.value = buffer
+        }
+
+      } else if (file.source === 'local' && file.URL?.startsWith('blob:')) {
+        // 🧩 已有 blob URL
+        fileName.value = file.name || 'localfile'
+        const ext = file.type || file.name?.split('.').pop().toLowerCase()
+        previewType.value = ext
+
+        if (ext === 'pdf') {
+          previewContent.value = file.URL
+        } else if (['docx', 'xlsx'].includes(ext)) {
+          const response = await fetch(file.URL)
+          const buffer = await response.arrayBuffer()
+          previewContent.value = buffer
+        } else {
+          previewContent.value = null
+        }
+
+      } else if (file instanceof File) {
+        // 🧾 原始 File 直接传入
+        fileName.value = file.name
+        const ext = file.name.split('.').pop().toLowerCase()
+        previewType.value = ext
+
+        if (ext === 'pdf') {
+          previewContent.value = URL.createObjectURL(file)
+        } else if (['docx', 'xlsx'].includes(ext)) {
+          const buffer = await file.arrayBuffer()
+          previewContent.value = buffer
+        }
+      } else {
+        console.warn('无法识别文件格式:', file)
+        previewContent.value = null
+      }
+    } catch (e) {
+      console.error('预览失败', e)
+      previewContent.value = null
+    } finally {
+      loading.value = false
+    }
+  },
+  { immediate: true }
 )
 
 watchEffect(() => {

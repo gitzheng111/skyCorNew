@@ -10,7 +10,8 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { createStore } from 'vuex'
 import { fetchAirportCode,fetchTaskList } from './api'
 import loadingPlugin from './plugins/loading'
-
+import ElementPlus from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 const pinia = createPinia()
 
@@ -25,6 +26,9 @@ app.use(router).use(elementPlus).use(store).mount('#app')
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
+app.use(ElementPlus, {
+  locale: zhCn,
+})
 fetchAirportCode();
 fetchTaskList()
 // for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

@@ -1,11 +1,15 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router'; // 修复1：必须导入 useRoute
+import { getInfoCenter, addInfoCenter, deleteInfoByIds } from '../api.js'
+
 import {
   Check,
   Delete,
   Edit,
+  HelpFilled,
   Message,
+  Notification,
   Search,
   Star,
 } from '@element-plus/icons-vue'
@@ -16,13 +20,28 @@ import {
 const router = useRouter();
 const route = useRoute(); // 修复2：获取当前路由对象
 const activeIndex = ref('1');
+// const unreadCount = ref(0)
+const infoData = ref([])
 
-// 修复3：正确监听路由路径变化
-const navToInfoCenter = ()=>{
-  router.push({ name: 'infoCenter', query: {  } })
+const loadUnreadCount = async () => {
+  const res = await getInfoCenter()  // 你后台接口
+  // unreadCount.value = res.data.count
+}
+const unreadCount = computed(() => {
+  return infoData.value.filter(item => item.processed === 'no').length
+})
+// 正确监听路由路径变化
+const isMessageActive = ref(false)
+
+const navToInfoCenter = () => {
+  activeIndex.value = null
+  isMessageActive.value = true
+
+  router.push({ name: 'infoCenter', query: {} })
 }
 
 const handleSelect = (key) => {
+  isMessageActive.value =false
   switch (key) {
     case '1':
       router.push('/');
@@ -94,7 +113,16 @@ watch(
   },
   { immediate: true }
 );
+onMounted(async () => {
+  const infoResponse = await getInfoCenter()
+  infoData.value = infoResponse.data
 
+})
+watch(() => infoData.value, (val) => {
+    infoData.value = val
+    console.log('infoData', infoData.value)
+},
+    { immediate: true })
 </script>
 
 <template>
@@ -121,7 +149,11 @@ watch(
 
     </el-sub-menu>
     <div class="button-row">
-      <el-button :icon="Message" size="large" circle @click="navToInfoCenter" />
+      <el-badge :value="unreadCount" class="item">
+        <el-button :icon="Notification" size="large" class="messageBtn" :class="{ activeBtn: isMessageActive }" circle
+          @click="navToInfoCenter" />
+
+      </el-badge>
     </div>
 
   </el-menu>
@@ -141,5 +173,11 @@ watch(
   position: relative;
   left: 50vw;
 
+}
+
+.messageBtn.activeBtn {
+  background-color: #409EFF !important;
+  /* Element Plus 主色 */
+  color: #fff !important;
 }
 </style>

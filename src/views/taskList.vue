@@ -19,7 +19,7 @@
             <el-table-column label="申请任务key" prop="taskKey"></el-table-column>
             <el-table-column label="任务内容">
                 <template #default="{ row }">
-                    <div v-if="Array.isArray(row.data)">
+                    <div v-if="Array.isArray(row.data)" style="max-height: 200px;overflow-y: scroll;">
                         <div v-for="(item, idx) in row.data" :key="idx">
                             <div v-if="Array.isArray(item.flightList)">
                                 <el-tag v-for="(flight, index) in item.flightList" :key="index" class="mr-1 mb-1"
@@ -149,18 +149,11 @@
                                     {{
                                         useFullCycleStatus ? '还原原周期申请' :
                                             '使用全周期申请' }}</el-button>
-                                <el-button type="success" @click="applyAllAircraft" round
-                                    :plain="!useAllAircraftTypesStatus">
-                                    <el-icon>
-                                        <Pointer v-if="!useAllAircraftTypesStatus" />
-                                        <RefreshLeft v-else />
-                                    </el-icon>
-                                    {{ useAllAircraftTypesStatus ? '还原原机型申请' :
-                                        '使用全机型申请' }}</el-button>
+
                                 <div class="custom-style">
 
                                     <el-segmented v-model="useAircraftOption" :options="aircraftOptions"
-                                        @change="useChooseAircraft" size="large" />
+                                        @change="useChooseAircraft()" size="large" />
                                 </div>
 
 
@@ -182,12 +175,12 @@
                                 </el-table-column>
                                 <el-table-column label="开始时间">
                                     <template #default="{ row }">
-                                        {{ row.startDate }}
+                                        {{ normalizeDate(row.startDate) }}
                                     </template>
                                 </el-table-column>
                                 <el-table-column label="结束时间">
                                     <template #default="{ row }">
-                                        {{ row.endDate }}
+                                        {{ normalizeDate(row.endDate) }}
                                     </template>
                                 </el-table-column>
                                 <el-table-column label="周期">
@@ -210,7 +203,7 @@
                                         {{ row.departureTime }}
                                         <div>
 
-                                            <el-tag type="info">UTC {{
+                                            <el-tag type="success">UTC {{
                                                 formatTimeWithoutColon(beijingToUTC(row.departureTime)) }}</el-tag>
 
                                         </div>
@@ -225,20 +218,22 @@
                                     <template #default="{ row }">
                                         {{ row.arrivalTime }}
                                         <div>
-                                            <el-tag type="info">UTC {{ formatTimeWithoutColon(
+                                            <el-tag type="warning">UTC {{ formatTimeWithoutColon(
                                                 beijingToUTC(row.arrivalTime)) }}</el-tag>
                                         </div>
                                     </template>
                                 </el-table-column>
                                 <el-table-column label="机型">
                                     <template #default="{ row }">
-                                        {{ row.aircraftType }}
+                                        {{ Array.isArray(row.aircraftType) ? row.aircraftType.join(', ') : row.aircraftType
+                                        }}
                                     </template>
                                 </el-table-column>
                             </el-table>
                         </div>
                         <div>
                             <el-divider>航路列表<el-tag>{{ item.overflyDetails.length }}条</el-tag></el-divider>
+                            <el-button @click="updateOverflyDataFromServer">更新航路数据</el-button>
                             <el-button v-if="curCountry == '越南'" type="success" @click="applyExtractRoutes">
                                 <el-icon>
                                     <Pointer v-if="!extractStatus" />
@@ -247,7 +242,7 @@
                                 提取成该国申请格式航路</el-button>
 
                             <overflyDataView mode="temp" :overflyDataFromFather="item.overflyDetails"
-                                @updateFinish="refreshOverflyData" />
+                                @updateFinish="refreshOverflyData" :countryData="curCountryInfo" />
                         </div>
                         <el-divider>飞越申请</el-divider>
                         <div>
@@ -414,7 +409,7 @@
                                                 <el-icon class="mr-2">
                                                     <DocumentChecked />
                                                 </el-icon>
-                                                <span>{{curCountry}}批复文件</span>
+                                                <span>{{ curCountry }}批复文件</span>
                                             </div>
                                         </template>
 
@@ -455,7 +450,7 @@
                                                     <div class="mb-2">
                                                         <div style="text-align: left;font-weight: bold"
                                                             class="font-semibold">批复内容</div>
-                                                            
+
                                                         <el-table :data="data.fileData.permitFlight || []"
                                                             style="width: 100%; margin-top: 4px" height="150"
                                                             size="small">
@@ -497,7 +492,7 @@
                                 </el-col>
                             </el-row>
                         </div>
-                        <el-loading v-if="loadingTask" text="正在刷新任务列表..." />
+                        <!-- <el-loading v-if="loadingTask" text="正在刷新任务列表..." /> -->
 
                         <filePreview :file="currentFile" v-model:visible="previewVisible"
                             @extract-fields="onFieldsExtracted" />
@@ -516,7 +511,7 @@
 </template>
 <script setup>
 // import { taskListInServer } from '../api';
-import { getFlights, getRoutes, getPermission, baseURL,attributionOptionFromAPI, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList, getAircraftType } from '../api.js';
+import { getFlights, getRoutes, getPermission, baseURL, attributionOptionFromAPI, getCountryRules, addRoutes, airportCodeList, deleteRoutesByIds, getTaskList, baseFileURL, deleteTaskByIds, updateTaskList, getAircraftType, getOverflyData } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, toRaw, watchEffect } from 'vue'
 import { getLastSunday, calculateSeasons } from '../utils/seasonCalculator'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -529,7 +524,7 @@ import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import { saveAs } from 'file-saver'
 import { fixEncoding } from '../utils/fileNameEncode.js'
-import { formatTime } from '../utils/tool.js'
+import { formatTime, normalizeDate } from '../utils/tool.js'
 import fileView from '../utils/fileView.vue'
 import { CircleCheckFilled, MoreFilled } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
@@ -559,12 +554,12 @@ const filteredTasks = ref([])
 
 const attributionOption = ref(attributionOptionFromAPI)
 const selectAttribution = ref('schedule')
-const changeAttribution = (val)=>{
+const changeAttribution = (val) => {
     selectAttribution.value = val
-    console.log('变化后的selectAttribution',selectAttribution)
+    console.log('变化后的selectAttribution', selectAttribution)
 }
 // watch(() => attributionOptionFromAPI, (val) => {
-    
+
 //     attributionOption.value= val.value || ''
 //     console.log('attributionOption',attributionOption)
 // })
@@ -780,6 +775,41 @@ function dedupeViewData(viewData) {
     }
     return { ...viewData, data: newData };
 }
+const updateOverflyDataFromServer = async () => {
+    const latestOvfDataResponse = await getOverflyData()
+    const latestOvfData = latestOvfDataResponse.data
+    console.log('curCountryData', curCountryData)
+    console.log('curCountryInfo', curCountryInfo)
+    console.log('latestOvfData', latestOvfData)
+    // const temCurCountryData = latestOvfDataResponse.find(item=>item.country == curCountryInfo.value.country)
+    const temCurCountryData = latestOvfData.find(
+        item => item.country === curCountryInfo.value.country
+    )
+    if (!temCurCountryData) {
+        console.warn('未找到对应国家数据', curCountryInfo.value.country)
+        return
+    }
+    console.log('更新前的 viewData', viewData)
+    console.log('数据库里当前国家的所有飞越数据', temCurCountryData)
+
+    const temViewData = viewData.value.data.map(item => {
+        if (item.overflyCountry === curCountryInfo.value.country) {
+            return {
+                ...item,
+                ...temCurCountryData, // 合并最新的数据
+            }
+        } else {
+            return item
+        }
+    })
+
+    console.log('更新后的 viewData', temViewData)
+    // const temViewData = viewData.map({
+    //     ...item,
+
+    // })
+
+}
 const extractStatus = ref(false)
 const extractRecord = ref(null)
 function applyExtractRoutes() {
@@ -890,18 +920,24 @@ const aircraftOptions = [{ label: '原始', value: 'origin' }, { label: '全部'
 
 const useAllAircraftTypesStatus = ref(false)
 const useAllAircraftTypesRecord = ref(null)
+const originalViewData = ref(null)
 const useChooseAircraft = () => {
+    const mode = useAircraftOption.value
+    // const originalData = viewData.value
     console.log('useAircraftOption', useAircraftOption)
-    if (useAllAircraftTypesStatus.value === false) {
+    if (!originalViewData.value) {
+        originalViewData.value = viewData.value
+    }
+    if (mode !== 'origin') {
 
-        useAllAircraftTypesRecord.value = viewData.value
+        // useAllAircraftTypesRecord.value = viewData.value
         viewData.value = useAllAircraftTypes(viewData.value);
         console.log('useAllAircraftTypes(viewData.value)', useAllAircraftTypes(viewData.value))
         useAllAircraftTypesStatus.value = true
-    } else {
+    } else if (mode === 'origin') {
         console.log('回到原周期')
 
-        viewData.value = useAllAircraftTypesRecord.value
+        viewData.value = originalViewData.value
         useAllAircraftTypesRecord.value = null
         useAllAircraftTypesStatus.value = false
 
@@ -972,7 +1008,7 @@ const changeCountry = (country) => {
     // allFullCycle.value = curCountryData.value.flightList.some()
     useFullCycleStatus.value = false
     useAllAircraftTypesStatus.value = false
-
+    useAircraftOption.value = 'origin'
     console.log('切换后的国家申请数据', curCountryData.value)
 }
 const createApplyDoc = async (attribution, type) => {

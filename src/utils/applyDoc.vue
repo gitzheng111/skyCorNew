@@ -11,17 +11,20 @@
 
         <div v-else class="result-layout" style="display: flex; gap: 20px; min-height: 500px;">
             <!-- 左侧预览 -->
-            <div style="flex: 1; border: 1px solid #ccc; overflow: hidden;">
-                <filePreview v-if="fileGenerated && docBlobUrl" :file="docBlobUrl" v-model:visible="previewVisible"
-                    :inline="true" />
+            <div style="flex: 1; border: 1px solid #ccc; overflow: hidden;width: 80%;">
+                <filePreview v-if="fileGenerated && previewGenerate?.type === 'docx'" :file="previewGenerate"
+                    v-model:visible="previewVisible" :inline="true" />
+
+                <VueOfficeExcel v-else-if="fileGenerated && previewGenerate?.type === 'xlsx'"
+                    :src="previewGenerate.URL" />
             </div>
 
             <!-- 右侧成功提示 -->
-            <div style="flex: 1;">
+            <div style="flex: 1;width: 20%;">
                 <el-result icon="success" title="生成成功">
                     <template #extra>
                         <p>申请文件已生成，点击下方按钮下载。</p>
-                        <el-button type="primary" @click="downloadDoc" :loading="downloading">下载申请文件</el-button>
+                        <el-button type="primary" @click="downloadDoc" :loading="downloading">保存并下载申请文件</el-button>
                     </template>
                 </el-result>
             </div>
@@ -37,11 +40,14 @@ import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import mammoth from "mammoth";
 // import { isFullUrl } from '@/utils/tools' // 你已有的工具函数
-import { baseFileURL, updateTaskList, airportCodeList } from '../api.js' // 全局文件前缀
+import { baseFileURL, updateTaskList, airportCodeList, generateExcel } from '../api.js' // 全局文件前缀
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from "docx";
 import filePreview from '../utils/filePreview.vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { beijingToUTC, formatTimeWithoutColon, formatDateToCountry } from '../utils/timeTransfer.js';
+// import XlsxTemplate from 'xlsx-template'
+import * as XLSX from 'xlsx'
+import VueOfficeExcel from "@vue-office/excel"
 // import * as airportData from '../../node_modules/airport-data-js';
 // import { saveAs } from "file-saver";
 const props = defineProps({
@@ -69,29 +75,7 @@ watch(() => props.curCountryData, (newValue, oldValue) => {
 
     }
 }, { immediate: true });
-// watch(
-//     [() => props.curCountryInfo, () => props.curTaskData], // 监听 curCountryInfo 和 curTaskData
-//     (newValues, oldValues) => {
-//         const [newCountryInfo, newTaskData] = newValues;
-//         // 如果 curCountryInfo 和 curTaskData 都有值
-//         if (newCountryInfo && newTaskData) {
-//             // 根据 curTaskData 中的数据找到对应的 country
-//             const countryData = newTaskData.data.find(
-//                 (item) => item.overflyCountry === newCountryInfo.country
-//             );
-//             if (countryData) {
-//                 curCountryApplyData.value = countryData; // 更新 curCountryApplyData
-//                 console.log('更新后的 curCountryApplyData:', curCountryApplyData.value);
-//             } else {
-//                 console.log('没有找到匹配的 country 数据');
-//             }
-//         }
 
-//         // console.log('curCountryInfo:', newCountryInfo);
-//         // console.log('curTaskData:', newTaskData);
-//     },
-//     { immediate: true } // 立即执行回调
-// );
 const handleClose = () => {
     emit('update:show', false)
     emit('close')
@@ -199,6 +183,79 @@ function getShowArrivalTime(departureTime, arrivalTime) {
     }
     return arr;
 }
+async function generateExcelFromTemplate(templateUrl, flightList) {
+    // 1. 读取模板
+    const res = await fetch(templateUrl)
+    const arrayBuffer = await res.arrayBuffer()
+
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+    const sheetName = workbook.SheetNames[0]
+    const sheet = workbook.Sheets[sheetName]
+
+    // 2. 转成二维数组
+    const sheetData = XLSX.utils.sheet_to_json(sheet, {
+        header: 1, // 保留为二维数组
+        defval: '',
+    })
+
+    // 3. 找到模板行（含 {{flightNumber}} 的那一行）
+    const templateRowIndex = sheetData.findIndex(row =>
+        row.some(cell => typeof cell === 'string' && cell.includes('{{flightNumber}}'))
+    )
+
+    if (templateRowIndex === -1) {
+        throw new Error('未找到模板行')
+    }
+
+    const templateRow = sheetData[templateRowIndex]
+
+    // 4. 根据 flightList 循环生成新行
+    const newRows = flightList.map(flight =>
+        templateRow.map(cell => {
+            if (typeof cell !== 'string') return cell
+
+            return cell
+                .replace('{{flightNumber}}', flight.flightNumber || '')
+                .replace('{{departure}}', flight.departure || '')
+                .replace('{{arrival}}', flight.arrival || '')
+                .replace('{{startDate}}', flight.startDate || '')
+                .replace('{{endDate}}', flight.endDate || '')
+        })
+    )
+
+    // 5. 删除模板行，插入新行
+    sheetData.splice(templateRowIndex, 1, ...newRows)
+
+    // 6. 写回 worksheet
+    const newSheet = XLSX.utils.aoa_to_sheet(sheetData)
+    workbook.Sheets[sheetName] = newSheet
+
+    // 7. 导出 Excel
+    const out = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+    const blob = new Blob([out], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+
+    return blob
+}
+// const generateExcel = async (data, templatePath) => {
+//   // 1. 获取模板
+//   const response = await fetch(templatePath);
+//   const arrayBuffer = await response.arrayBuffer();
+
+//   // 2. 初始化模板
+//   const template = new XlsxTemplate(arrayBuffer);
+
+//   // 3. 填充数据（第一个 sheet）
+//   template.substitute(1, data);
+
+//   // 4. 生成文件
+//   const out = template.generate({ type: 'blob' });
+
+//   return out;
+// };
+const excelBlobUrl = ref()
+const previewGenerate = ref(null)
 const generateDocNew = async () => {
     loading.value = true;
     console.log('变化前的申请数据curCountryApplyData.value', curCountryApplyData.value)
@@ -211,6 +268,8 @@ const generateDocNew = async () => {
 
     try {
         const templatePath = baseFileURL + props.curCountryInfo.scheduleTemplate.url;
+        const ext = templateUrl.split('.').pop().toLowerCase();
+        console.log('ext', ext)
 
         const transformedFlightList = (curCountryApplyData.value.flightList || []).map(flight => {
             // console.log('111',formatDateToCountry(flight.startDate,props.curCountryData.overflyCountry,'blank'))
@@ -294,43 +353,71 @@ const generateDocNew = async () => {
             // routeList: curCountryApplyData.value.overflyDetails || [],
             routeList: sortedRouteList || [],
             aircraftTypeAll: curCountryApplyData.value?.aircraftTypeAll,
-            mergedFlights
+            mergedFlights,
+            templatePath
         };
         console.log('用来模板的data', data)
+        if (ext == 'xlsx') {
+            const excelResponse = await generateExcel(data)
+            console.log('excelResponse', excelResponse)
+            const excelBlob = new Blob(
+                [excelResponse.data],
+                {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                }
+            )
 
-        // 1. 获取模板文件
-        const response = await fetch(templatePath);
-        const arrayBuffer = await response.arrayBuffer();
-        const zip = new PizZip(arrayBuffer);
 
-        // 2. 创建 Docxtemplater 实例
-        const doc = new Docxtemplater(zip, {
-            paragraphLoop: true,
-            linebreaks: true,
-        });
-        // 4. 渲染模板
-        doc.setData(data);
-
-        try {
-            doc.render();
-        } catch (error) {
-            console.error("模板渲染出错:", error);
+            previewGenerate.value = {
+                name: '预览申请文件',
+                type: 'xlsx',
+                URL: URL.createObjectURL(excelBlob),
+                source: 'local',
+                blob: excelBlob,
+            }
             loading.value = false;
-            return;
+            console.log('previewGenerate', previewGenerate.value)
+            console.log('excelResponse.data type:', typeof excelResponse.data)
+            console.log('is ArrayBuffer:', excelResponse.data instanceof ArrayBuffer)
+            console.log('is Uint8Array:', excelResponse.data instanceof Uint8Array)
+
+        } else if (ext == 'docx') {
+            // 1. 获取模板文件
+            const response = await fetch(templatePath);
+            const arrayBuffer = await response.arrayBuffer();
+            const zip = new PizZip(arrayBuffer);
+
+            // 2. 创建 Docxtemplater 实例
+            const doc = new Docxtemplater(zip, {
+                paragraphLoop: true,
+                linebreaks: true,
+            });
+            // 4. 渲染模板
+            doc.setData(data);
+
+            try {
+                doc.render();
+            } catch (error) {
+                console.error("模板渲染出错:", error);
+                loading.value = false;
+                return;
+            }
+
+            // 5. 输出为 Blob
+            const out = doc.getZip().generate({
+                type: "blob",
+                mimeType:
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            });
+
+            docBlob.value = out;
+            loading.value = false;
+            previewGenerate.value = {
+                name: '预览申请文件', type: 'docx', URL: URL.createObjectURL(out), source: 'local', blob: docBlob.value,
+            }
+            // docBlobUrl.value = { name: '预览申请文件', type: 'docx', URL: URL.createObjectURL(out), source: 'local', }
         }
 
-        // 5. 输出为 Blob
-        const out = doc.getZip().generate({
-            type: "blob",
-            mimeType:
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        });
-
-        docBlob.value = out;
-        loading.value = false;
-        // console.log('docBlobUrl.value 设置前', docBlobUrl.value)
-
-        docBlobUrl.value = { type: 'docx', URL: URL.createObjectURL(out), source: 'local', }
         fileGenerated.value = true
         // console.log('docBlobUrl设置后', docBlobUrl.value)
         previewVisible.value = true
@@ -353,6 +440,12 @@ const readDocxContent = async () => {
     console.log('docContentHtml', docContentHtml)
 
 };
+// async function generateTemplate(type) {
+//   const data = buildTemplateData();
+
+//   if (type === 'word') return generateDocx(data);
+//   if (type === 'excel') return generateExcel(data);
+// }
 function parseHtmlToDocxChildren(html, flights = []) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
@@ -451,47 +544,74 @@ function parseTableRow(tr, data = null) {
     return new TableRow({ children: cells });
 }
 
+// const downloadDoc = async () => {
+//     if (!previewGenerate.value) return
+//     //生成文件名的名字
+
+//     const fileBolb = previewGenerate.value.blob
+//     const fileType = previewGenerate.value.type
+
+//     console.log('fileBolb', fileBolb)
+//     console.log('fileType', fileType)
+
+//     const currentDate = new Date();
+//     const formattedDate = currentDate.toISOString().split('T')[0];
+//     const timestamp = currentDate.getTime()
+//     saveAs(fileBolb, `${curCountryApplyData.value.overflyCountry}-applicationForm-${timestamp}.${fileType}`)
+//     // const encodedFileName = encodeURIComponent(fileName);
+//     const file = new File([fileBolb], encodeURIComponent(`${curCountryApplyData.value.overflyCountry}-applicationForm-${timestamp}.${fileType}`), {
+//         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+//     });
+//     console.log('上传的文件信息', file)
+//     // console.log('curTaskData', props.curTaskData)
+
+//     const formData = new FormData();
+
+//     formData.append('taskKey', props.curTaskData.taskKey);
+//     formData.append('id', props.curTaskData.id);
+//     formData.append('country', curCountryApplyData.value.overflyCountry);
+//     formData.append('file', file);
+//     formData.append('updateTime', new Date().toISOString().split("T")[0]);
+//     formData.append('action', 'upload');
+//     console.log('taskData', props.curTaskData)
+//     console.log('FormData 内容:');
+//     for (let [key, val] of formData.entries()) {
+//         console.log(`${key}:`, val);
+//     }
+//     try {
+//         const res = await updateTaskList(formData)
+//         console.log('res', res)
+//         // const result = await res.json();
+//         if (res.data.success) {
+//             console.log('上传成功并更新 applyData:', res.data);
+//             ElMessage.success(res.data.message)
+//         } else {
+//             console.error('上传失败:', res.message);
+//         }
+//     } catch (err) {
+//         console.error('上传接口异常:', err);
+//     }
+// }
 const downloadDoc = async () => {
-    if (!docBlob.value) return
-    //生成文件名的名字
-    const currentDate = new Date();
-    const formattedDate = currentDate.toISOString().split('T')[0];
-    const timestamp = currentDate.getTime()
-    saveAs(docBlob.value, `${curCountryApplyData.value.overflyCountry}-applicationForm-${timestamp}.docx`)
-    console.log('docBlob.value', docBlob.value)
-    // const encodedFileName = encodeURIComponent(fileName);
-    const file = new File([docBlob.value], encodeURIComponent(`${curCountryApplyData.value.overflyCountry}-applicationForm-${timestamp}.docx`), {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-    console.log('上传的文件信息', file)
-    // console.log('curTaskData', props.curTaskData)
+    const { blob, type } = previewGenerate.value
 
-    const formData = new FormData();
+    const timestamp = Date.now()
+    const filename = `${curCountryApplyData.value.overflyCountry}-applicationForm-${timestamp}.${type}`
 
-    formData.append('taskKey', props.curTaskData.taskKey);
-    formData.append('id', props.curTaskData.id);
-    formData.append('country', curCountryApplyData.value.overflyCountry);
-    formData.append('file', file);
-    formData.append('updateTime', new Date().toISOString().split("T")[0]);
-    formData.append('action', 'upload');
-    console.log('taskData', props.curTaskData)
-    console.log('FormData 内容:');
-    for (let [key, val] of formData.entries()) {
-        console.log(`${key}:`, val);
-    }
-    try {
-        const res = await updateTaskList(formData)
-        console.log('res', res)
-        // const result = await res.json();
-        if (res.data.success) {
-            console.log('上传成功并更新 applyData:', res.data);
-            ElMessage.success(res.data.message)
-        } else {
-            console.error('上传失败:', res.message);
-        }
-    } catch (err) {
-        console.error('上传接口异常:', err);
-    }
+    // 1️⃣ 本地下载
+    saveAs(blob, filename)
+
+    // 2️⃣ 直接上传 blob（关键）
+    const formData = new FormData()
+    formData.append('file', blob, filename)
+
+    formData.append('taskKey', props.curTaskData.taskKey)
+    formData.append('id', props.curTaskData.id)
+    formData.append('country', curCountryApplyData.value.overflyCountry)
+    formData.append('updateTime', new Date().toISOString().split("T")[0])
+    formData.append('action', 'upload')
+
+    await updateTaskList(formData)
 }
 watch(() => props.show, (val) => {
     if (val) {
@@ -501,14 +621,5 @@ watch(() => props.show, (val) => {
         visible.value = false
     }
 })
-// watch(() => props.show, async (val, oldVal) => {
-//     visible.value = val
-//     // console.log('开始生成', visible)
-//     if (val) {
-//         await nextTick()
-//         // await generateDoc()
-//         await generateDocNew()
 
-//     }
-// })
 </script>

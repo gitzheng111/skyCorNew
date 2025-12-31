@@ -6,7 +6,12 @@
           <template v-if="field.prop === 'season'">
             <SeasonSelect v-model="searchForm[field.prop]" />
           </template>
-          <template v-else-if="field.prop === 'departure' || field.prop === 'arrival'|| field.prop === 'routeCode'">
+          <template v-else-if="field.prop === 'label'">
+            <el-select v-model="searchForm[field.prop]" placeholder="请选择标签" style="width: 240px">
+              <el-option v-for="item in labelOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </template>
+          <template v-else-if="field.prop === 'departure' || field.prop === 'arrival' || field.prop === 'routeCode'">
             <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable
               @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
 
@@ -15,10 +20,15 @@
             <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
 
           </template>
+          <template v-else-if="field.prop === 'dateBetween'">
+            <el-date-picker v-model="dateRange" type="daterange" range-separator="到" start-placeholder="开始日期"
+              end-placeholder="结束日期" :size="size" @change="chooseDate" :shortcuts="shortcuts" />
+          </template>
           <template v-else>
             <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
 
           </template>
+
         </el-form-item>
       </template>
 
@@ -31,18 +41,68 @@
 </template>
 
 <script setup>
-import { reactive, computed, watch } from 'vue'
+import { reactive, computed, watch, ref } from 'vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
 import { seasonCalculate, currentSeasonData } from '../utils/season.js'
 import { useSeasonData } from '../components/useSeasonUtils'
-
-const { todaySeason} = useSeasonData()
+import 'dayjs/locale/zh-cn'
+import { onlyDate } from '../utils/tool.js'
+const { todaySeason } = useSeasonData()
 const props = defineProps({
   mode: { type: String, required: true }, // flight / route / permission / task
   list: { type: Array, required: true }
 })
 const emit = defineEmits(['update:result'])
+const dateSelect = ref({ startDate: '', endDate: '' })
+const dateRange = ref()
+const labelOptions = [
+  {
+    value: '季中新增',
+    label: '季中新增',
+  },
+  {
+    value: '换季航班',
+    label: '换季航班',
+  },]
+const chooseDate = () => {
+  searchForm['dateBetween'] = dateRange.value
 
+  // searchForm['startDate'] = onlyDate(dateRange.value[0])
+  // searchForm['endDate'] = onlyDate(dateRange.value[1])
+
+  console.log('dateRange', dateRange)
+  console.log('searchForm', searchForm)
+
+}
+const shortcuts = [
+  {
+    text: '选择一周',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      end.setTime(start.getTime() + 3600 * 1000 * 24 * 7)
+      return [start, end]
+    },
+  },
+  {
+    text: '选择一个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      end.setTime(start.getTime() + 3600 * 1000 * 24 * 30)
+      return [start, end]
+    },
+  },
+  {
+    text: '选择三个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      end.setTime(start.getTime() + 3600 * 1000 * 24 * 90)
+      return [start, end]
+    },
+  },
+]
 // 各模式对应的搜索字段
 const fieldMap = {
   flight: [
@@ -51,7 +111,9 @@ const fieldMap = {
     { label: '起飞机场', prop: 'departure' },
     { label: '目的机场', prop: 'arrival' },
     { label: '几点之前', prop: 'filterBefore' },
-    { label: '飞越国家', prop: 'overflyCountry' }
+    { label: '飞越国家', prop: 'overflyCountry' },
+    { label: '选择日期', prop: 'dateBetween' },
+    { label: '标签', prop: 'label' },
 
   ],
   route: [
@@ -79,7 +141,7 @@ const fieldMap = {
   ]
   ,
   overflyData: [
-  { label: '航季', prop: 'season' },
+    { label: '航季', prop: 'season' },
     { label: '国家', prop: 'country' },
     // { label: '航季', prop: 'season' },
   ]
@@ -93,10 +155,10 @@ watch(
   searchFields,
   () => {
     searchFields.value.forEach(f => (searchForm[f.prop] = ''))
-      if(todaySeason){
-        console.log('todaySeason',todaySeason)
-        searchForm['season']=todaySeason.value.en
-      }
+    if (todaySeason) {
+      console.log('todaySeason', todaySeason)
+      searchForm['season'] = todaySeason.value.en
+    }
   },
   { immediate: true }
 )
@@ -140,15 +202,22 @@ function normalizeFlightNumber(val) {
 function handleSearch() {
   // console.log('props', props.list)
   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
-  console.log('props.list',props.list)
+  console.log('props.list', props.list)
   const filtered = props.list.filter(item => {
-    console.log('props.list', props.list)
+    console.log('searchFields', searchFields.value)
+    //searchFields查找的参数
     return searchFields.value.every(f => {
-      const val = searchForm[f.prop]?.trim()
+      const val = Array.isArray(searchForm[f.prop]) ? searchForm[f.prop] : searchForm[f.prop]?.trim()
       if (!val) return true
 
       // 特殊处理 filterBefore
-      if (f.prop === 'filterBefore') {
+      if (props.mode == 'flight' && f.prop === 'flightNumber'){
+        console.log('找航班号val',val)
+
+        const flightNumberList = val.join(',')
+        console.log('flightNumberList',flightNumberList)
+      }
+      if (props.mode == 'flight' && f.prop === 'filterBefore') {
         // 只支持 HH:mm 或 HH 格式
         let [h, m] = val.split(':')
         if (!m) m = '00'
@@ -162,6 +231,20 @@ function handleSearch() {
 
         return flightMinutes <= limit
       }
+      if (props.mode == 'flight' && f.prop === 'dateBetween') {
+        console.log('搜索日期')
+        const [searchStartStr, searchEndStr] = val
+        const searchStart = new Date(searchStartStr)
+        const searchEnd = new Date(searchEndStr)
+
+        const flightStart = new Date(item.startDate)
+        const flightEnd = new Date(item.endDate)
+
+        // 判断航班是否包含搜索区间
+        return flightStart <= searchStart && flightEnd >= searchEnd
+        // return item.find(i => i.startDate > dateRange.value[0] && i.endDate < dateRange.value[1])
+      }
+
       if (f.prop === 'overflyCountry') {
         const valUpper = val.trim().toUpperCase()
 
@@ -198,12 +281,14 @@ function handleSearch() {
           })
         }
 
-      }if (props.mode == 'overflyData' && f.prop === 'country') {
+      }
+      if (props.mode == 'overflyData' && f.prop === 'country') {
         return item.fileData.permitFlight.find(i => i.flightNumber == normalizeFlightNumber(val))
       }
 
+
       if (props.mode == 'permission' && f.prop === 'flightNumber') {
-        return item.find(i => i.country ==val)
+        return item.find(i => i.country == val)
       }
       //  普通字符串匹配逻辑
       // const itemVal = Array.isArray(item[f.prop])
@@ -215,7 +300,7 @@ function handleSearch() {
         ? item[f.prop].map(c => c.country || c).join(',')
         : (item[f.prop] ?? '').toString()
 
-      console.log('itemVal', itemVal)
+      // console.log('itemVal', itemVal)
       return itemVal.toUpperCase().includes(val.toUpperCase())
     })
   })
@@ -226,6 +311,7 @@ function handleSearch() {
 
 function handleReset() {
   searchFields.value.forEach(f => (searchForm[f.prop] = ''))
+  dateRange.value = ''
   emit('update:result', props.list)
 }
 </script>

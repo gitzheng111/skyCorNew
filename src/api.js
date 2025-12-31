@@ -6,6 +6,7 @@ const api = axios.create({
   baseURL: 'http://43.138.197.165/api', // 后端服务器地址，根据实际修改
   // baseURL: 'http://localhost:3000/api', // 后端服务器地址，根据实际修改
 });
+
 export const baseFileURL = 'http://43.138.197.165:3000/'
 export const baseURL = 'http://43.138.197.165/api'
 export const getFlights = () => api.get('/flights');
@@ -64,6 +65,9 @@ export const updateCountryList = (countryForm) => api.post('/country/update', co
 export const updateTaskList = (form) => api.post('/taskList/update', form);
 export const updatePermission = (form) => api.post('/taskList/updatePermission', form);
 export const addTask = (data) => api.post('/taskList/add', data);
+export const updateInfo = (data) => api.post('/infoCenter/update', data);
+export const updateInfoBatch = (data) => api.post('/infoCenter/updateBatch', data);
+
 // export const deleteFlightsByIds = (ids) => {
 //   return api.delete('/flights/batch-delete', { ids })
 // }
@@ -92,6 +96,15 @@ export const deleteAirportByIds = (ids) => {
 export const deleteAircraftByIds = (ids) => {
   return api.post('/aircraftType/deleteBatch', { ids })
 }
+export const deleteInfoByIds = (ids) => {
+  return api.post('/infoCenter/deleteBatch', { ids })
+}
+export const generateExcel = (data) => {
+  return api.post('/excel', { data }, {
+    responseType: 'blob'  
+  })
+}
+
 import { ref } from 'vue'
 export const flightsData = ref([]);
 export const aircraftData = ref([]);

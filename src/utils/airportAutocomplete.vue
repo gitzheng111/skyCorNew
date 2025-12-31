@@ -41,12 +41,12 @@ const handleSelect = (item) => {
   emit('select', item)
 }
 const createFilter = (queryString) => {
-  const query = queryString.toLowerCase()
+  const query = queryString.toUpperCase()
   return (airport) =>
-    airport.IATACode?.toLowerCase().includes(query) ||
-    airport.ICAOCode?.toLowerCase().includes(query) ||
+    airport.IATACode?.toUpperCase().includes(query) ||
+    airport.ICAOCode?.toUpperCase().includes(query) ||
     airport.chineseName?.includes(queryString) ||
-    airport.englishName?.toLowerCase().includes(query)
+    airport.englishName?.toUpperCase().includes(query)
 }
 
 const airportSearch = (queryString, cb) => {

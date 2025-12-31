@@ -62,7 +62,7 @@ const handleBatchDelete = async () => {
         // 调用后端接口进行删除
         await deleteAirportByIds(idsToDelete)
 
-        selectedRoutes.value = []
+        selectedAirport.value = []
         const newAirportResponse = await getAirportCode();
         if (newAirportResponse?.data) {
             airportCodeList.value = newAirportResponse.data;

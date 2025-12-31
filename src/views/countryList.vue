@@ -189,7 +189,7 @@
                     </el-button>
                 </template>
                 <el-upload v-else :action="uploadURL" :auto-upload="false" :show-file-list="true" :disabled="!needApply"
-                    :on-change="(file) => handleFileChange(file, 'scheduleTemplate')" accept=".pdf,.doc,.docx">
+                    :on-change="(file) => handleFileChange(file, 'scheduleTemplate')" accept=".pdf,.doc,.docx,.xlsx">
                     <el-button>上传定期航班申请件</el-button>
                 </el-upload>
             </el-form-item>
@@ -273,13 +273,13 @@ const applyTemplates = [
         type: '定期',
         fields: [
             { section: 'flightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
-            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
+            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'altEntryPoint', 'altExitPoint', 'EET', 'flightLevel'] }
         ]
     }, {
         type: '非定期',
         fields: [
             { section: 'flightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
-            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
+            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'altEntryPoint', 'altExitPoint', 'EET', 'flightLevel'] }
         ]
     },
     {
@@ -288,8 +288,8 @@ const applyTemplates = [
             { section: 'flightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
             { section: 'newFlightInfo', items: ['flightNumber', 'departure', 'departureTime', 'arrival', 'arrivalTime', 'aircraft', 'days'] },
 
-            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] },
-            { section: 'newRoute', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'aliternativeEntryPoint', 'aliternativeExitPoint', 'EET', 'flightLevel'] }
+            { section: 'route', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'altEntryPoint', 'altExitPoint', 'EET', 'flightLevel'] },
+            { section: 'newRoute', items: ['sector', 'routeCode', 'entryPoint', 'entryTime', 'ATSroute', 'exitPoint', 'exitTime', 'speed', 'altEntryPoint', 'altExitPoint', 'EET', 'flightLevel'] }
         ]
     }
 ]
@@ -452,6 +452,7 @@ const saveCountry = async () => {
             formData.append('scheduleTemplate', 'null')  // 保持为空
         } else {
             // 否则正常传输字段
+            console.log('selectedApplyRequire',selectedApplyRequire)
             formData.append('applyRequire', JSON.stringify(selectedApplyRequire))
             formData.append('nonScheduleTemplate', editCountryData.value.nonScheduleTemplate)
             formData.append('permitRules', editCountryData.value.permitRules)

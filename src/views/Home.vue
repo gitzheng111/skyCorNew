@@ -23,7 +23,9 @@ const permission = ref()
 const flightListKey = ref(0);
 const taskListInServer = ref()
 const handleRefreshFlights = async () => {
+  loading.show('刷新航班数据，请稍后...')
   await loadFlightData();
+  loading.hide()
   flightListKey.value++; // 强制刷新组件
   console.log('重新刷新', flightListKey)
 };
@@ -37,7 +39,7 @@ const loadFlightData = async () => {
     // console.log(`flightNumber${flight.flightNumber}`,'Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))
     // if(flight.flightNumber=='MF824'){console.log('Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))}
     if (!Array.isArray(flight.matchingRoutes)) return;
-
+    let applyRouteCount = 0
     flight.matchingRoutes.forEach(route => {
       // if (route.isValid !== false) return;
 
@@ -78,7 +80,7 @@ const loadFlightData = async () => {
                 )
               );
             }
-            console.log(`航路匹配flightNumber${flight.flightNumber}`, routeMatch)
+            // console.log(`航路匹配flightNumber${flight.flightNumber}`, routeMatch)
             // if(flight.flightNumber=='MF824'){console.log(`航路匹配flightNumber${flight.flightNumber}`,routeMatch)}
             if (flightMatchItem && routeMatch) {
               matched = true;
@@ -114,16 +116,17 @@ const loadFlightData = async () => {
       });
 
       // route 下收集所有国家的 taskKeys
-      let applyRouteCount = 0
+      
       route.taskKeys = allTaskKeys;
       route.isApply = Array.isArray(route.taskKeys) && route.taskKeys.length > 0
       if (!route.isPermit && route.isApply) {
         applyRouteCount++;
       }
-      if (applyRouteCount >= 0) {
-        flight.applyRoute = applyRouteCount
+      flight.applyRoute = applyRouteCount
+      // if (applyRouteCount >= 0) {
+        
 
-      }
+      // }
 
     });
 

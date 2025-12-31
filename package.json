@@ -47,7 +47,8 @@
     "vue-office": "^0.0.5",
     "vue-router": "^4.5.0",
     "vuex": "^4.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-template": "^1.4.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",

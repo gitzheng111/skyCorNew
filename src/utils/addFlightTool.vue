@@ -122,15 +122,15 @@
         </div>
         <div v-if="mode === 'manAdd'">
             <el-table :data="addFlightForms" border style="width: 100%; margin-bottom: 10px;">
-                <el-table-column label="航季" width="120">
+                <el-table-column label="航季" width="150">
                     <template #default="{ row }">
                         <SeasonSelect v-model="row.season" />
                     </template>
                 </el-table-column>
 
-                <el-table-column label="性质" width="180">
+                <el-table-column label="性质" width="150">
                     <template #default="{ row }">
-                        <el-select v-model="row.attribution" placeholder="请选择航班性质" style="width: 160px">
+                        <el-select v-model="row.attribution" placeholder="请选择航班性质" style="width: 120px">
                             <el-option v-for="(item, index) in attributeData" :key="index"
                                 :label="`${item.name} / ${item.attribute}`" :value="`${item.attribute}`" />
                         </el-select>
@@ -140,20 +140,20 @@
                 <el-table-column label="航班号" width="150">
                     <template #default="{ row }">
                         <el-input v-model="row.flightNumber" placeholder="航班号" maxlength="6"
-                            @blur="validateFlightNumber(row)" />
+                            @blur="validateFlightNumber(row)"  @input="row.flightNumber = row.flightNumber.toUpperCase()" />
                     </template>
                 </el-table-column>
 
                 <el-table-column label="起飞机场" width="150">
                     <template #default="{ row }">
-                        <AirportAutocomplete v-model="row.departure" @select="handleDepartureSelect" />
+                        <AirportAutocomplete v-model="row.departure" @select="handleDepartureSelect"  />
                     </template>
                 </el-table-column>
 
                 <el-table-column label="起飞时间" width="120">
                     <template #default="{ row }">
-                        <el-time-picker v-model="row.departureTime" format="HH:mm" value-format="HH:mm"
-                            placeholder="起飞时间" />
+                        <TimeInput v-model="row.departureTime" mode="split" />
+
                     </template>
                 </el-table-column>
 
@@ -163,10 +163,10 @@
                     </template>
                 </el-table-column>
 
-                <el-table-column label="落地时间" width="120">
+                <el-table-column label="落地时间" >
                     <template #default="{ row }">
-                        <el-time-picker v-model="row.arrivalTime" format="HH:mm" value-format="HH:mm"
-                            placeholder="落地时间" />
+                        <TimeInput v-model="row.arrivalTime" mode="split" />
+
                     </template>
                 </el-table-column>
 
@@ -180,18 +180,31 @@
                     </template>
                 </el-table-column>
 
-                <el-table-column label="开始时间" width="150">
+                <el-table-column label="开始日期" width="200">
                     <template #default="{ row }">
+                        <DateInput v-model="row.startDate" mode="split" />
+
+                    </template>
+                    <!-- <template #default="{ row }">
                         <el-date-picker v-model="row.startDate" type="date" placeholder="开始时间" style="width: 120px" />
-                    </template>
+                    </template> -->
                 </el-table-column>
 
-                <el-table-column label="结束时间" width="150">
+                <el-table-column label="结束日期" width="200">
                     <template #default="{ row }">
-                        <el-date-picker v-model="row.endDate" type="date" placeholder="结束时间" style="width: 120px" />
+                        <DateInput v-model="row.endDate" mode="split" />
+                        <!-- <el-date-picker v-model="row.endDate" type="date" placeholder="结束时间" style="width: 120px" /> -->
                     </template>
                 </el-table-column>
+                <el-table-column label="标签" width="150">
+                    <template #default="{ row }">
+                        <el-select v-model="row.label" placeholder="Select" style="width: 120px">
+                            <el-option v-for="item in labelOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
+                    </template>
 
+                </el-table-column>
                 <el-table-column label="周期" width="180">
                     <template #default="{ row }">
                         <daysPicker v-model="row.days" />
@@ -204,7 +217,12 @@
                         <el-button type="danger" :icon="Minus" @click="removeRow($index)">
                             删除
                         </el-button>
+                        <el-button type="success" v-if="needReturnCheck($index)" :icon="add"
+                            @click="addReturnRow($index)">
+                            添加返程航班
+                        </el-button>
                     </template>
+
                 </el-table-column>
             </el-table>
 
@@ -231,7 +249,7 @@
 </template>
 
 <script setup>
-import { ref, watch, toRaw } from 'vue'
+import { ref, watch, toRaw, nextTick } from 'vue'
 import * as XLSX from 'xlsx'
 import airportsCheck from 'airport-codes'
 import { ElMessage } from 'element-plus'
@@ -242,8 +260,11 @@ import { beijingToUTC, utcToBeijing, formatTimeWithoutColon, formatTimeWithColon
 import { transferToOutput, disMatchList } from '../utils/airportCodeTool'
 import { attributeData, aircraftData, getAirportCode, addAirportCode } from '../api'
 import daysPicker from '../utils/daysPicker.vue'
-import { validateFlightNumber, normalizeDays, formatDate } from '../utils/tool.js'
+import { validateFlightNumber, normalizeDays, formatDate, normalizeDate } from '../utils/tool.js'
 import addDataTool from '../utils/addDataTool.vue'
+import { seasonCalculate, currentSeasonData } from '../utils/season.js'
+import DateInput from '../utils/DateInput.vue'
+import TimeInput from '../utils/TimeInput.vue'
 
 const { seasonData } = useSeasonData()
 const props = defineProps({ visible: Boolean, originData: Array, isEditing: Boolean, editData: Array })
@@ -252,6 +273,173 @@ const emit = defineEmits(['update:visible', 'parsed'])
 const showAddAirport = ref(false)
 const editAirportMode = ref(false)
 const selectAttribution = ref()
+const hourRefs = ref([])
+const minuteRefs = ref([])
+const yearRefs = ref([])
+const monthRefs = ref([])
+const dayRefs = ref([])
+const setHourRef = (el, index) => {
+    if (el) hourRefs.value[index] = el
+}
+
+const setMinuteRef = (el, index) => {
+    if (el) minuteRefs.value[index] = el
+}
+const setYearRef = (el, index) => {
+    if (el) yearRefs.value[index] = el
+}
+
+const setMonthRef = (el, index) => {
+    if (el) monthRefs.value[index] = el
+}
+const setDayRef = (el, index) => {
+    if (el) dayRefs.value[index] = el
+}
+
+const onHourInput = (row, index) => {
+    row._hour = row._hour.replace(/\D/g, '').slice(0, 2)
+
+    if (row._hour.length === 2) {
+        nextTick(() => {
+            minuteRefs.value[index]?.focus()
+        })
+    }
+
+    mergeTime(row)
+}
+const onMinuteInput = (row) => {
+    row._minute = row._minute.replace(/\D/g, '').slice(0, 2)
+    mergeTime(row)
+}
+const onYearInput = (row, index) => {
+    row._year = row._year.replace(/\D/g, '').slice(0, 4)
+
+    if (row._year.length === 4) {
+        nextTick(() => {
+            monthRefs.value[index]?.focus()
+        })
+    }
+
+    mergeDate(row)
+}
+const onMonthInput = (row, index) => {
+    row._month = row._month.replace(/\D/g, '').slice(0, 2)
+
+    if (row._month.length === 2) {
+        nextTick(() => {
+            dayRefs.value[index]?.focus()
+        })
+    }
+    mergeDate(row)
+}
+const onDayInput = (row, index) => {
+    row._day = row._day.replace(/\D/g, '').slice(0, 2)
+
+
+    mergeDate(row)
+}
+const formatHour = (row) => {
+    if (row._hour !== '') {
+        let h = Number(row._hour)
+        if (h > 23) h = 23
+        row._hour = String(h).padStart(2, '0')
+    }
+    mergeTime(row)
+}
+
+const formatMinute = (row) => {
+    if (row._minute !== '') {
+        let m = Number(row._minute)
+        if (m > 59) m = 59
+        row._minute = String(m).padStart(2, '0')
+    }
+    mergeTime(row)
+}
+const formatYear = (row) => {
+  if (row._year !== '') {
+    let y = Number(row._year)
+    if (y > 2100) y = 2100
+    row._year = String(y)
+  }
+  mergeDate(row)
+}
+
+
+const formatMonth = (row) => {
+  if (row._month !== '') {
+    let m = Number(row._month)
+    if (m > 12) m = 12
+    row._month = String(m).padStart(2, '0')
+  }
+  mergeDate(row)
+}
+const formatDay = (row) => {
+    if (row._day !== '') {
+        let d = Number(row._day)
+        if (d > 31) d = 31
+        row._day = String(d).padStart(2, '0')
+    }
+    mergeDate(row)
+}
+const mergeTime = (row) => {
+    if (row._hour?.length === 2 && row._minute?.length === 2) {
+        row.arrivalTime = `${row._hour}:${row._minute}`
+    } else {
+        row.arrivalTime = ''
+    }
+}
+
+
+const mergeDate = (row) => {
+  if (
+    row._year?.length === 4 &&
+    row._month?.length === 2 &&
+    row._day?.length === 2
+  ) {
+    row.startDate = `${row._year}/${row._month}/${row._day}`
+  } else {
+    row.startDate = ''
+  }
+}
+const initRowTime = (row) => {
+    if (row.arrivalTime) {
+        const [h, m] = row.arrivalTime.split(':')
+        row._hour = h
+        row._minute = m
+    } else {
+        row._hour = ''
+        row._minute = ''
+    }
+}
+const labelOptions = [
+    {
+        value: '季中新增',
+        label: '季中新增',
+    },
+    {
+        value: '换季航班',
+        label: '换季航班',
+    },
+    {
+        value: '暂不执行',
+        label: '暂不执行',
+    }]
+
+const calcFlightLabel = (row, season) => {
+    console.log('season', season)
+    console.log('row', row)
+    if (!row.startDate || !row.endDate) return ''
+
+    if (
+        normalizeDate(row.startDate) === season.current.seasonStart &&
+        normalizeDate(row.endDate) === season.current.seasonEnd
+    ) {
+        return '换季航班'
+    }
+
+    return '季中新增'
+}
+
 console.log('parentFlights', props.originData)
 import AirportAutocomplete from '../utils/airportAutocomplete.vue'
 
@@ -281,6 +469,7 @@ watch(selectAttribution, (val) => {
         })
     }
 })
+
 const columns = [
     { prop: 'season', label: '航季' },
     { prop: 'attribution', label: '性质' },
@@ -318,11 +507,25 @@ const emptyForm = () => ({
     aircraftType: '',
     startDate: '',
     endDate: '',
+    label: '',
     days: [],
 })
 
 
 const addFlightForms = ref([])
+watch(
+    addFlightForms,
+    (rows) => {
+        rows.forEach(row => {
+            // 只有没被人工改过，才算默认值
+            row.label = calcFlightLabel(row, currentSeasonData)
+            // if (!row.labelManual) {
+            //     row.label = calcFlightLabel(row, currentSeason)
+            // }
+        })
+    },
+    { deep: true, immediate: true }
+)
 // 映射父组件传来的编辑数据到表单结构
 const mapEditData = (data) => {
     const arrayData = Array.isArray(data) ? data : [data];
@@ -331,6 +534,7 @@ const mapEditData = (data) => {
         season: f.season || '',
         attribution: f.attribution || '',
         flightNumber: f.flightNumber || f.flightNumber || '',
+        
         departure: f.departure || f.departure || '',
         departureTime: f.departureTime || f.departureTime || '',
         arrival: f.arrival || f.arrival || '',
@@ -338,10 +542,38 @@ const mapEditData = (data) => {
         aircraftType: f.aircraftType || '',
         startDate: f.startDate || '',
         endDate: f.endDate || '',
+        label: f.label || '',
         days: Array.isArray(f.days) ? f.days : (f.days ? f.days.split('') : []),
     }))
 }
 const editMode = ref(false)
+const prepRowData = (row) => {
+    if (row.departureTime) {
+        const [h, m] = row.departureTime.split(':')
+        row._departureHour = h
+        row._departureMinute = m
+    }
+
+    if (row.arrivalTime) {
+        const [h, m] = row.arrivalTime.split(':')
+        row._arrivalHour = h
+        row._arrivalMinute = m
+    }
+
+    if (row.startDate) {
+        const d = new Date(row.startDate)
+        row._startYear = String(d.getFullYear())
+        row._startMonth = String(d.getMonth() + 1).padStart(2, '0')
+        row._startDay = String(d.getDate()).padStart(2, '0')
+    }
+
+    if (row.endDate) {
+        const d = new Date(row.endDate)
+        row._endYear = String(d.getFullYear())
+        row._endMonth = String(d.getMonth() + 1).padStart(2, '0')
+        row._endDay = String(d.getDate()).padStart(2, '0')
+    }
+}
 watch(
     () => [props.isEditing, props.editData],
     (val) => {
@@ -350,6 +582,9 @@ watch(
             editMode.value = true
             mode.value = 'manAdd'
             addFlightForms.value = mapEditData(props.editData)
+            // addFlightForms.value.map(i=>{
+            //     prepRowData(i)
+            // })
             console.log('mode', mode.value)
 
             console.log('addFlightForms', addFlightForms.value)
@@ -396,7 +631,70 @@ const showConflictDialog2 = ref(false)
 
 
 const addRow = () => {
+
     addFlightForms.value.push(emptyForm())
+}
+// const emptyForm = () => ({
+//     season: '',
+//     attribution: '',
+//     flightNumber: '',
+//     departure: '',
+//     departureTime: '',
+//     arrival: '',
+//     arrivalTime: '',
+//     aircraftType: '',
+//     startDate: '',
+//     endDate: '',
+//     label: '',
+//     days: [],
+// })
+// const getReturnNumber =(input)=>{
+//     const lastTwo = input.slice(-2)
+//     const returnNumber = +lastTwo+1
+//     const removeLastTwo = input.slice(0, -2)
+//     console.log('回程航班',removeLastTwo+returnNumber)
+//     return removeLastTwo+returnNumber
+// }
+const getReturnNumber = (input) => {
+    if (!input) return ''   //
+
+    const match = input.match(/^([A-Z]+)(\d+)$/)
+    if (!match) return ''
+
+    const prefix = match[1]
+    let num = parseInt(match[2], 10)
+
+    // 去程奇数 → 回程偶数
+    if (num % 2 === 1) num += 1
+
+    //  保留原数字长度
+    const width = match[2].length
+    return prefix + String(num).padStart(width, '0')
+}
+const addReturnRow = (index) => {
+    const inputNow = addFlightForms.value[index]
+    console.log('inputNow', inputNow)
+    const returnRow = {
+        ...inputNow,          //  拷贝原行
+        flightNumber: getReturnNumber(inputNow.flightNumber),
+        departure: inputNow.arrival,
+        arrival: inputNow.departure,
+        departureTime: '',
+        arrivalTime: '',
+        // labelManual: false,   //  新行默认自动计算标签
+    }
+
+    console.log('returnRow', returnRow)
+
+    addFlightForms.value.push(returnRow)
+
+    // addFlightForms.value.push(emptyForm())
+}
+const needReturnCheck = (index) => {
+    const inputNow = addFlightForms.value[index]
+    const num = inputNow.flightNumber.slice(-2)
+    const needReturn = num % 2 === 1 ? true : false
+    return needReturn
 }
 
 const removeRow = (index) => {
@@ -472,6 +770,7 @@ const syncDataToFather = () => {
             // aircraftNumber: f.flightNumber,
             startDate: formatDate(f.startDate || selectedSeason.value.seasonStart),
             endDate: formatDate(f.endDate || selectedSeason.value.seasonEnd),
+            label: f.label,
             days: normalizeDays(f.days) // 转成数组
         }))
         console.log('mappedData', mappedData)

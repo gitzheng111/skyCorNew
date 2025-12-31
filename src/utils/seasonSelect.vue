@@ -1,5 +1,5 @@
 <template>
-  <el-select v-model="internalValue" placeholder="请选择航季" style="width: 240px" @change="handleChange">
+  <el-select v-model="internalValue" placeholder="请选择航季" style="width: 120px" @change="handleChange">
     <el-option v-for="(item, index) in seasonData" :key="index" :label="item.label" :value="item.en">
       <span style="float: left">{{ item.label }}</span>
       <span v-if="item.label === curSeason.label"

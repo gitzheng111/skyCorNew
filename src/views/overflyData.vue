@@ -3,7 +3,7 @@
 
     <SeasonSelect v-model="curSeason" />
     <!-- <el-button @click="addOverflyData">新增飞越数据</el-button> -->
-    <el-tabs v-model="clickCountry" @tab-click="changeCountry">
+    <el-tabs v-model="clickCountry" @tab-click="changeCountry" >
         <el-tab-pane v-for="(ovfData, index) in overflyData" :key="index">
             <template #label>
                 <span>
@@ -86,6 +86,8 @@ const changeCountry = (country) => {
     curCountry.value = selectedItem.country;
     selectCountryData.value = countryData.value.find(item => item.country == selectedItem.country)
     console.log('点击后的country', selectedItem)
+    console.log('所有国家数据',  countryData.value)
+
     console.log('selectCountryData', selectCountryData.value)
 
     //当前国家申请数据
@@ -144,8 +146,8 @@ const refreshOverflyData = async () => {
             arrival: r.arrival,
             ATSroute: r.ATSroute || null,
             sector: r.sector || null,
-            routeCode: JSON.stringify(r.routeCode || []), // 如果是数组，转 JSON
-            overflyCountry: JSON.stringify(r.overflyCountry || []), // ✅ 必须转 JSON
+            routeCode: normalizeJSONField(r.routeCode),// 如果是数组，转 JSON
+            overflyCountry: normalizeJSONField(r.overflyCountry), // ✅ 必须转 JSON
             season: r.season
         }))
     console.log('payload', payload)
@@ -156,6 +158,49 @@ const refreshOverflyData = async () => {
     overflyStore.setNeedRefresh(true)
     console.log('overflyStore', overflyStore.needRefresh) // true
     loading.hide()
+}
+
+function normalizeJSONField(value) {
+    if (Array.isArray(value)) {
+        return JSON.stringify(value)
+    }
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value)
+            return JSON.stringify(parsed)
+        } catch {
+            return JSON.stringify([])
+        }
+    }
+    return JSON.stringify([])
+}
+
+function forceParseArray(val) {
+    // 已经是数组
+    if (Array.isArray(val)) return val;
+
+    // 循环最多解开 5 层（避免死循环）
+    let result = val;
+    for (let i = 0; i < 5; i++) {
+        if (typeof result === 'string') {
+            try {
+                result = JSON.parse(result);
+                if (Array.isArray(result)) {
+                    return result; // 终于是数组
+                }
+            } catch (e) {
+                // 尝试修复被转义的特殊字符串
+                try {
+                    result = JSON.parse('"' + result.replace(/"/g, '\\"') + '"');
+                } catch {
+                    break;
+                }
+            }
+        }
+    }
+
+    console.warn("无法解析 overflyCountry，返回空数组：", val);
+    return [];
 }
 
 const updateRoutesWithOverflyData = (routes, overflyData, targetCountry, curSeason) => {
@@ -179,22 +224,37 @@ const updateRoutesWithOverflyData = (routes, overflyData, targetCountry, curSeas
     // 提取更新内容
     const targetUpdateData = seasonObj.data || []
     console.log('targetUpdateData', targetUpdateData)
+    console.log('routes', routes)
+
     // 遍历所有航线，更新 overflyCountry
     routes.forEach(route => {
-        if (!Array.isArray(route.overflyCountry)) return
+        // if (!Array.isArray(route.overflyCountry)) return
+        
+        const arrOvfCountry = forceParseArray(route.overflyCountry)
+        // const arrOvfCountry = typeof route.overflyCountry === 'string'?JSON.parse(route.overflyCountry):route.overflyCountry
+        if(typeof route.overflyCountry !=='Array'){
+            // console.log('原来的',typeof route.overflyCountry, route.overflyCountry)
+            // console.log('arrOvfCountry', arrOvfCountry)
 
-        const matchedCountry = route.overflyCountry.find(c => c.country === targetCountry)
+        }
+
+        const matchedCountry = arrOvfCountry.find(c => c.country === targetCountry)
+        // console.log('matchedCountry', matchedCountry)
+
         if (matchedCountry) {
             matchedCountry.overflyDetails = targetUpdateData
             matchedCountry.season = curSeason
             if (route.route_id) {
-                updatedRouteIds.add(route.route_id) // ✅ 记录被修改的 route_id
+                updatedRouteIds.add(route.route_id) // 记录被修改的 route_id
             }
         }
+        // console.log('updatedRouteIds', updatedRouteIds)
+
     })
 
     return { routes, updatedRouteIds: Array.from(updatedRouteIds) }
 }
+
 // const updateRoutesForCountry = (routes, countryItem) => {
 //   const { country, data } = countryItem
 
