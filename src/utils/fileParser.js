@@ -52,7 +52,20 @@ export const mergeRouteWithOverflyData = (totalRoutes, overflyData) => {
                 // 在匹配规则时可以根据需要增加条件
                 // 比如基于 ATSroute 和 routeCode 进行筛选
                 const entryRouteCodes = Array.isArray(entry.routeCode) ? entry.routeCode : [entry.routeCode].filter(Boolean);
+                const result =
+                    entryRouteCodes.length > 0
+                        ? entryRouteCodes.some(rc =>
+                            normalizeRouteCode(rc) === normalizeRouteCode(route.routeCode)
+                        )
+                        : entry.sector === route.sector;
 
+                console.log(
+                    'FILTER',
+                    entry.routeCode,
+                    entry.sector,
+                    '=>',
+                    result
+                );///这里要改逻辑，不然把所有飞跃数据都匹配到一个航路里
                 if (entryRouteCodes.length > 0) {
                     // 有 routeCode 时：必须精确匹配
                     return entryRouteCodes.some(rc => normalizeRouteCode(rc) === normalizeRouteCode(route.routeCode));
@@ -121,9 +134,9 @@ export const mergeNewOverflyData = async () => {
         // Step 2: 逐个国家匹配飞越航路数据
         const overflyCountry = countries.map(country => {
             const countryName = `${country.country}`;
-            
-            console.log('newOverflyData类型',typeof newOverflyData)
-            const countryData = newOverflyData.find(item=>item.country === countryName || []);
+
+            console.log('newOverflyData类型', typeof newOverflyData)
+            const countryData = newOverflyData.find(item => item.country === countryName || []);
             const normalizeRouteCode = (routeCode) => routeCode.replace(/\s+/g, '').toUpperCase();  // 去除空格并转换为大写
             console.log(`${country.country}的countryData`, countryData)
 
@@ -131,7 +144,7 @@ export const mergeNewOverflyData = async () => {
             const matchedData = countryData.data.filter(entry => {
                 // 在匹配规则时可以根据需要增加条件
                 // 比如基于 ATSroute 和 routeCode 进行筛选
-                console.log(`${route.routeCode}里${country.country}的entry`,entry)
+                console.log(`${route.routeCode}里${country.country}的entry`, entry)
 
                 return (
                     entry.data.routeCode.includes(route.routeCode) && route.sector === entry.sector || route.sector === entry.sector       // 确保sector匹配

@@ -204,18 +204,26 @@ function handleSearch() {
   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
   console.log('props.list', props.list)
   const filtered = props.list.filter(item => {
-    console.log('searchFields', searchFields.value)
+    // console.log('searchFields', searchFields.value)
     //searchFields查找的参数
     return searchFields.value.every(f => {
       const val = Array.isArray(searchForm[f.prop]) ? searchForm[f.prop] : searchForm[f.prop]?.trim()
       if (!val) return true
 
       // 特殊处理 filterBefore
-      if (props.mode == 'flight' && f.prop === 'flightNumber'){
-        console.log('找航班号val',val)
+      if (props.mode == 'flight' && f.prop === 'flightNumber') {
+        console.log('找航班号val', val)
+        console.log('找航班号val', typeof (val))
 
-        const flightNumberList = val.join(',')
-        console.log('flightNumberList',flightNumberList)
+        const flightNumberList = val
+          .split(/[,，\s]+/) // 支持 逗号 / 中文逗号 / 空格
+          .map(v => v.trim().toUpperCase())
+          .filter(Boolean)
+        const flightNo = item.flightNumber?.trim().toUpperCase()
+
+        console.log('flightNumberList', flightNumberList)
+        return flightNumberList.some(v => flightNo.includes(v))
+        // return flightNumberList.includes(item.flightNumber)
       }
       if (props.mode == 'flight' && f.prop === 'filterBefore') {
         // 只支持 HH:mm 或 HH 格式

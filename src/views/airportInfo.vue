@@ -107,11 +107,13 @@ const onSubmit = async () => {
 
         const airportResponse = await addAirportCode(submitData).then(() => {
             ElMessage.success('添加成功');
-            airportCodeList.value = airportResponse.data
+            
 
         }).catch(err => {
             console.error('添加失败:', err);
         });
+        airportCodeList.value = airportResponse.data
+        //有问题》？？
         console.log('airportResponse ====', airportResponse)
 
     }

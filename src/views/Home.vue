@@ -34,17 +34,13 @@ const loadFlightData = async () => {
   const taskResponse = await getTaskList();
   flightsData.value = flightResponse.data;
   taskListInServer.value = taskResponse.data;
-  console.log('flightsData', flightsData)
+  console.log('01加载的飞行计划数据', flightsData.value)
   flightsData.value.forEach(flight => {
-    // console.log(`flightNumber${flight.flightNumber}`,'Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))
-    // if(flight.flightNumber=='MF824'){console.log('Array.isArray(flight.matchingRoutes)',Array.isArray(flight.matchingRoutes))}
+   
     if (!Array.isArray(flight.matchingRoutes)) return;
     let applyRouteCount = 0
     flight.matchingRoutes.forEach(route => {
-      // if (route.isValid !== false) return;
-
       let allTaskKeys = [];
-      // console.log(`flightNumber${flight.flightNumber}`,route)
 
       route.overflyCountry.forEach(countryObj => {
         const { country } = countryObj;

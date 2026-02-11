@@ -2,6 +2,7 @@
     <!-- <Searcher mode="overflyData" :list="overflyData" @update:result="filteredData = $event" /> -->
 
     <SeasonSelect v-model="curSeason" />
+    <!-- <el-button type="success" @click="toggleToAdd">新增飞越数据</el-button> -->
     <!-- <el-button @click="addOverflyData">新增飞越数据</el-button> -->
     <el-tabs v-model="clickCountry" @tab-click="changeCountry" >
         <el-tab-pane v-for="(ovfData, index) in overflyData" :key="index">
@@ -104,6 +105,8 @@ const initData = async () => {
 
         const countryResponse = await getCountryRules();
         countryData.value = countryResponse.data;
+        
+
         const overflyResponse = await getOverflyData();
         overflyData.value = overflyResponse.data;
         clickCountry.value = '0'

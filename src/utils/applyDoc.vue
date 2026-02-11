@@ -603,13 +603,14 @@ const downloadDoc = async () => {
 
     // 2️⃣ 直接上传 blob（关键）
     const formData = new FormData()
-    formData.append('file', blob, filename)
+   
 
     formData.append('taskKey', props.curTaskData.taskKey)
     formData.append('id', props.curTaskData.id)
     formData.append('country', curCountryApplyData.value.overflyCountry)
     formData.append('updateTime', new Date().toISOString().split("T")[0])
     formData.append('action', 'upload')
+    formData.append('file', blob, filename)
 
     await updateTaskList(formData)
 }

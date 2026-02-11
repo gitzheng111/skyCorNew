@@ -35,14 +35,29 @@
                             <el-input v-model="form.routeCode" placeholder="航线代码" />
                         </el-form-item>
                         <el-form-item label="飞越国家">
-                            <div v-for="(c, idx) in form.overflyCountry" :key="idx"
-                                style="display:flex;align-items:center;margin-bottom:6px;">
-                                <el-input v-model="c.country" placeholder="飞越国家名称" style="flex:1;" />
-                                <el-button type="danger" link @click="form.overflyCountry.splice(idx, 1)">删除</el-button>
-                            </div>
+                            <el-tabs v-model="clickCountry" @tab-click="changeCountry">
+                                <el-tab-pane v-for="(c, idx) in form.overflyCountry" :key="idx" :name="c.country">
+                                    <template #label>
+                                        <span>
+                                            {{ c.country }}
+                                        </span>
+                                    </template>
+                                    <div>
+                                        <overflyDataView :mode="'forever'" :editShow="true"
+                                            :overflyDataFromFather="c.overflyDetails" :allData="form.overflyCountry"
+                                            :curSeason="curSeason" :countryData="selectCountryData(c.country)"
+                                            @updateFinish="refreshOverflyData" />
+                                    </div>
+                                    <el-button type="danger" @click="form.overflyCountry.splice(idx, 1)">删除 {{ c.country
+                                        }}</el-button>
+                                </el-tab-pane>
+
+                            </el-tabs>
+
                             <el-button type="primary" link @click="addCountry(form)">+ 添加国家</el-button>
 
                         </el-form-item>
+                        <el-button @click="deleteRow(index)">删除</el-button>
 
                         <!-- 飞越国家 -->
                         <!-- <el-form-item label="飞越国家">
@@ -79,22 +94,25 @@
             <div v-if="mode == 'byExcel'">
                 <SeasonSelect v-model="curSeason" />
 
-                <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelMain">
-                    <el-button type="primary">上传航路总表</el-button>
-                </el-upload>
-                <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelOverfly">
-                    <el-button type="primary">上传各国飞越数据</el-button>
-                </el-upload>
-                <el-button @click="submitAllRoute">提交所有航路数据</el-button>
 
+
+
+                <el-button @click="submitAllRoute">提交所有航路数据</el-button>
                 <el-button @click="submitOverflyData">只提交飞越数据</el-button>
-                <el-button type="warning" @click="deleteTemRouteData">清除航路数据</el-button>
-                <el-button type="warning" @click="deleteTemOverflyData">清除飞越数据</el-button>
+
 
                 <el-row>
                     <!-- 左边：总表 -->
                     <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
                         <h3>航路总表</h3>
+                        <div style="display: flex;justify-content: center;margin: auto;gap: 12px;">
+                            <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelMain">
+                                <el-button type="primary">上传航路总表</el-button>
+
+                            </el-upload>
+                            <el-button type="warning" @click="deleteTemRouteData">清除航路数据</el-button>
+                        </div>
+
                         <el-table :data="totalRoutes" border style="width: 100%">
                             <el-table-column prop="sector" label="航段" />
                             <el-table-column prop="routeCode" label="航线代码" />
@@ -120,6 +138,16 @@
                     <!-- 右边：飞越国境表 -->
                     <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
                         <h3>各国飞越数据</h3>
+                        <div style="display: flex;justify-content: center;margin: auto;gap: 12px;">
+                            <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelOverfly">
+                                <el-button type="primary">上传各国飞越数据</el-button>
+                            </el-upload>
+
+
+                            <el-button type="warning" @click="deleteTemOverflyData">清除飞越数据</el-button>
+
+                        </div>
+
                         <el-collapse>
                             <el-collapse-item v-for="(rows, sheetName) in overflyData" :key="sheetName"
                                 :title="sheetName">
@@ -132,7 +160,7 @@
                 </el-row>
 
                 <!-- 下方：合并后的结果 -->
-                <h3 style="margin-top:20px">合并结果</h3>
+                <h3 style="margin-top:20px">交叉匹配结果</h3>
                 <div style="max-height: 400px;overflow-y: scroll;">
                     <el-table :data="mergedRoutes" border style="width: 100%">
                         <el-table-column prop="sector" label="航段" />
@@ -240,12 +268,41 @@
 
 <script setup>
 import * as XLSX from "xlsx";
-import { ref, watch, nextTick, toRaw } from 'vue'
+import { ref, watch, nextTick, toRaw, onMounted, computed } from 'vue'
 import AirportAutocomplete from '../utils/airportAutocomplete.vue'
-import { addOverflyData, getOverflyData, updateOverflyData } from '../api.js'
+import { addOverflyData, getOverflyData, updateOverflyData, getCountryRules } from '../api.js'
 import { ElMessage } from 'element-plus'
 import { parseOverflyData, mergeRouteWithOverflyData } from './fileParser.js'; // 引入解析文件的工具函数
 import SeasonSelect from '../utils/seasonSelect.vue'
+import overflyDataView from '../utils/overflyDataView.vue'
+import { useSeasonData } from '../components/useSeasonUtils'
+
+const { todaySeason } = useSeasonData()
+const clickCountry = ref()
+const curCountry = ref()
+const countryData = ref()
+// const selectCountryData = ref()
+const selectCountryData = (country) => {
+    return countryData.value.find(
+        item => item.country === country
+    )
+}
+const changeCountry = (country) => {
+    const index = clickCountry.value
+    const selectedItem = overflyData.value[index]
+    curCountry.value = selectedItem.country;
+    selectCountryData.value = countryData.value.find(item => item.country == selectedItem.country)
+    console.log('点击后的country', selectedItem)
+    console.log('所有国家数据', countryData.value)
+
+    console.log('selectCountryData', selectCountryData.value)
+
+    //当前国家申请数据
+    // curCountry.value = selectedItem.overflyCountry
+
+
+    console.log('切换后的国家', curCountry.value)
+}
 
 const isEditing = ref(false)
 const props = defineProps({
@@ -270,6 +327,7 @@ const curSeason = ref(null)
 const emit = defineEmits(['update:showAddRoute', 'submit'])
 const filteredData = ref([])
 const showAddRoute = ref(props.showAddRoute)
+
 watch(() => props.showAddRoute, val => showAddRoute.value = val)
 watch(() => props.filteredData, val => filteredData.value = val)
 
@@ -285,8 +343,49 @@ const emptyRoute = () => ({
     autoRoutePrefix: ''
 })
 const addRouteForms = ref([])
+const addRow = () => {
 
+    addRouteForms.value.push(emptyRoute())
+}
 
+const deleteRow = (index) => {
+    addRouteForms.value.splice(index, 1)
+}
+const refreshOverflyData = async (data) => {
+    console.log('子组件传回来的data', data)
+    // loading.show('加载飞越航路数据')
+
+    // const overflyResponse = await getOverflyData()
+    // overflyData.value = overflyResponse.data
+    // const routeResponse = await getRoutes()
+    // // console.log('overflyData.value ', overflyData.value)
+    // console.log('routeResponse', routeResponse.data)
+    // const { routes: updatedRoutes, updatedRouteIds } = updateRoutesWithOverflyData(routeResponse.data, overflyData.value, curCountry.value, curSeason.value)
+
+    // mergedRoutes.value = updatedRoutes
+    // console.log('mergedRoutes', mergedRoutes.value)
+    // console.log('updatedRouteIds', updatedRouteIds)
+    // const payload = mergedRoutes.value
+    //     .filter(r => updatedRouteIds.includes(r.route_id))
+    //     .map(r => ({
+    //         route_id: r.route_id,
+    //         departure: r.departure,
+    //         arrival: r.arrival,
+    //         ATSroute: r.ATSroute || null,
+    //         sector: r.sector || null,
+    //         routeCode: normalizeJSONField(r.routeCode),// 如果是数组，转 JSON
+    //         overflyCountry: normalizeJSONField(r.overflyCountry), // ✅ 必须转 JSON
+    //         season: r.season
+    //     }))
+    // console.log('payload', payload)
+    // const updateResponse = await updateRoutes(payload)
+    // console.log('updateResponse', updateResponse)
+
+    // // 正确写法
+    // overflyStore.setNeedRefresh(true)
+    // console.log('overflyStore', overflyStore.needRefresh) // true
+    // loading.hide()
+}
 const mapEditData = (data) => {
     const arrayData = Array.isArray(data) ? data : [data];
     const transferRoute = arrayData.map(item => {
@@ -321,7 +420,10 @@ watch(
             mode.value = 'manAdd'
             addRouteForms.value = mapEditData(props.editData)
             console.log('mode', mode.value)
-
+            // clickCountry.value = '0'
+            // const selectedItem = addRouteForms.value[clickCountry.value]
+            // curCountry.value = selectedItem.country;
+            // selectCountryData.value = countryData.value.find(item => item.country == selectedItem.country)
             console.log('addFlightForms', addRouteForms.value)
         } else {
             addRouteForms.value = []
@@ -364,15 +466,13 @@ const regexRules = {
     airport: /^[A-Z]{4}$/,
 
     // ATS 路径串，例如：SARIN M166 KRG T523 ATBAN L994 TITUR
-    // ATSroute: /^(?=.*\d)(?:[A-Z0-9]+\s+)*[A-Z0-9]+$/,
-    // ATSroute: /^(?:(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])\s+)+(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/,
     ATSroute: /\b([A-Z]{3,5}|[A-Z][0-9]{2,3}|DCT|\d{2,3}[NS]\d{3}[EW])\b/g,
 
     // 航路点（Entry/Exit），通常是大写 3~6 个字母
     waypoint: /^(?:[A-Z]{3,6}|\d{2}[NS]\d{2,3}[EW])$/,
 
     // 飞行速度，例如：N0480（表示 480 节）
-    speed: /^N\d{4}$/,
+    speed: /^(?:[NK]\d{4}|\d{3,4}\s?KM\/H)$/i,
 
     // 飞行高度层，例如：F400（表示飞行高度 40000 英尺）
     flightLevel: /^F\d{3}$/,
@@ -387,8 +487,47 @@ const regexRules = {
     altPointSeq: /^(?:[A-Z]{5})(?:\s+[A-Z]{5})+$/,
 
 };
-// console.log(regexRules.ATSroute.test("ABCDE A123 FGHIJ DCT FGHIJ B20 KLMNO")); // true
+
+const POINT = /^[A-Z]{2,5}$/
+const ATS = /^[A-Z]{1,2}[0-9]{1,3}$/
+const LATLON = /^\d{2,3}[NS]\d{3}[EW]$/
+const DCT = /^DCT$/
+
+function isATSRoute(str) {
+    const tokens = str.trim().split(/\s+/)
+
+    // 至少 2 个
+    if (tokens.length < 2) return false
+
+    let hasATS = false
+    let valid = true
+
+    for (const t of tokens) {
+        if (
+            POINT.test(t) ||
+            LATLON.test(t) ||
+            DCT.test(t)
+        ) {
+            continue
+        }
+
+        if (ATS.test(t)) {
+            hasATS = true
+            continue
+        }
+
+        valid = false
+        break
+    }
+
+    return valid && hasATS
+}
+
+//将文件转化成航路数据
 function parseRowToRoute(row, curSeason) {
+    // if (!row ) {
+    //     return null
+    // }
     const route = {
         season: curSeason || '',
         departure: '',
@@ -402,6 +541,11 @@ function parseRowToRoute(row, curSeason) {
     // row 可能是对象（xlsx 解析） -> 提取所有值
     const values = Object.values(row).map(v => String(v).trim());
 
+    // if (values.length === 0) {
+    //     return null
+    // }
+    console.log('解析的excel原数据', values)
+    //识别每个字段的数据
     values.forEach(val => {
         if (regexRules.sector.test(val)) {
             route.sector = val;
@@ -440,21 +584,26 @@ const handleExcelMain = (file) => {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: "array" });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
+        const rows = XLSX.utils.sheet_to_json(sheet, {
+            header: 1,     // 👉 不自动识别表头
+            // defval: ''     // 👉 空单元格给空字符串 
+        });
         const curSeasonChoose = curSeason.value;
-
+        console.log('sheet', sheet)
         totalRoutes.value = rows.map(r => parseRowToRoute(r, curSeasonChoose));
-        console.log("totalRoutes", totalRoutes.value);
-        console.log("overflyData", overflyData.value);
+        console.log("文件的所有航路", totalRoutes.value);
+
 
         // 如果飞越表已加载，尝试合并
         if (Object.keys(overflyData.value).length) {
+            console.log("已存在飞越数据", overflyData.value);
             mergedRoutes.value = mergeRouteWithOverflyData(
                 totalRoutes.value,
                 overflyData.value
             );
+            console.log('合并后的数据mergedRoutes', mergedRoutes)
+
         }
-        console.log('mergedRoutes', mergedRoutes)
     };
     reader.readAsArrayBuffer(file.raw);
 };
@@ -534,7 +683,7 @@ function parseRowToModel(row, curSeason) {
             route.departure = dep;
             route.arrival = arr;
         }
-        else if (regexRules.ATSroute.test(val)) {
+        else if (isATSRoute(val) && !route.ATSroute) {
             route.ATSroute = val;
             const { entryPoint, exitPoint } = parseEntryExitFromATS(val);
 
@@ -568,7 +717,7 @@ function parseRowToModel(row, curSeason) {
         } else if (regexRules.EET.test(val)) {
             route.EET.push(val);
         }
-        else if (regexRules.altPointSeq.test(val)) {
+        else if (regexRules.altPointSeq.test(val) && route.entryPoint) {
             const tokens = val.split(/\s+/).filter(t => /^[A-Z]{5}$/.test(t));
             if (tokens.length > 1) {
                 if (!route.altEntryPoint) {
@@ -601,10 +750,11 @@ const handleExcelOverfly = (file) => {
         });
 
         overflyData.value = sheetDataMap;
-        console.log('overflyData', overflyData.value)
+        console.log('导入的飞跃数据overflyData', overflyData.value)
 
         // 如果总表已加载，尝试合并
         if (totalRoutes.value.length) {
+            console.log('开始合并')
             mergedRoutes.value = mergeRouteWithOverflyData(
                 totalRoutes.value,
                 sheetDataMap
@@ -875,6 +1025,31 @@ const onSubmit = async () => {
     console.log('传给父组件submitData', submitData)
     emit('submit', submitData)
 }
+const initData = async () => {
+    try {
+        // loading.show('加载飞越航路数据')
+        // const routeResponse = await getRoutes();
+        // routesData.value = routeResponse.data;
+        //全部国家的数据
+        const countryResponse = await getCountryRules();
+        countryData.value = countryResponse.data;
+
+        // const overflyResponse = await getOverflyData();
+        // overflyData.value = overflyResponse.data;
+
+        curSeason.value = todaySeason.value.en
+        console.log('curSeason', curSeason.value)
+        // getSeasonData(initOvfData)
+        // loading.hide()
+        // console.log('数据初始化完成', { routesData, countryData, overflyData, curCountry });
+    } catch (error) {
+        console.error('API error:', error);
+    }
+};
+onMounted(() => {
+    initData();
+});
+
 </script>
 <style scoped>
 .dialog-body {

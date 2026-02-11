@@ -12,6 +12,7 @@
             </el-button>
         </div>
         <!-- 搜索结果表格 -->
+        <el-tag>共{{ filteredRoutes.length }}条航线</el-tag>
         <el-table :data="filteredRoutes" style="width: 100%" @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="55" />
             <el-table-column type="expand">

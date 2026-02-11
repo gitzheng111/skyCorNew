@@ -1,4 +1,7 @@
 <template>
+    <!-- <el-button v-if="props.editShow" type="success" class="mb-4" @click="toggleAdd">
+        {{ '新增'}}
+    </el-button> -->
     <el-button v-if="props.editShow" type="primary" class="mb-4" @click="toggleEdit">
         {{ isEditing ? '保存' : '编辑' }}
     </el-button>
@@ -278,7 +281,7 @@ const toggleEdit = async () => {
                     ElMessage.success('更新成功')
                     changeLogs.value = []
                     isEditing.value = false
-                    emit('updateFinish')
+                    emit('updateFinish',submitData)
                 } catch (err) {
                     console.error(err)
                     ElMessage.error('更新失败')

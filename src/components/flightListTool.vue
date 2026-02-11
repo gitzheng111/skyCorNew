@@ -130,7 +130,7 @@
                                 </div>
                             </template>
 
-                            <span>{{ row.aircraftType.join(', ') }}</span>
+                            <span>{{ formatAircraftType(row.aircraftType) }}</span>
                         </el-tooltip>
                     </template>
                 </el-table-column>
@@ -1168,6 +1168,13 @@ const updateSelectAllStatus = () => {
 
 const updateFlightRoutes = (flight, routes) => {
     selectedRoutes.value[flight.flightNumber] = routes
+}
+
+const formatAircraftType = (val) => {
+  if (Array.isArray(val)) {
+    return val.join(', ')
+  }
+  return val || ''
 }
 
 

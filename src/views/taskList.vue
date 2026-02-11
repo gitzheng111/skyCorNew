@@ -161,7 +161,7 @@
 
                             </div>
 
-                            <el-table :data="item.flightList" size="small" border
+                            <el-table :data="sortedFlightList" size="small" border
                                 style="max-height: 600px;overflow-y: scroll;">
                                 <el-table-column label="性质">
                                     <template #default="{ row }">
@@ -225,7 +225,8 @@
                                 </el-table-column>
                                 <el-table-column label="机型">
                                     <template #default="{ row }">
-                                        {{ Array.isArray(row.aircraftType) ? row.aircraftType.join(', ') : row.aircraftType
+                                        {{ Array.isArray(row.aircraftType) ? row.aircraftType.join(', ') :
+                                            row.aircraftType
                                         }}
                                     </template>
                                 </el-table-column>
@@ -241,7 +242,7 @@
                                 </el-icon>
                                 提取成该国申请格式航路</el-button>
 
-                            <overflyDataView mode="temp" :overflyDataFromFather="item.overflyDetails"
+                            <overflyDataView mode="temp" :overflyDataFromFather="sortedOverflyDetails"
                                 @updateFinish="refreshOverflyData" :countryData="curCountryInfo" />
                         </div>
                         <el-divider>飞越申请</el-divider>
@@ -569,26 +570,7 @@ const steps = [
     { key: 'checkTime', label: '双校核' },
     { key: 'sendTime', label: '发送申请' }
 ]
-// const stepStatus = computed(() =>
-//     steps.map((step, index) => {
-//         const done = !!viewData.value.applyData?.[step.key]
-//         const isCurrent =
-//             !done &&
-//             (index === 0 || !!viewData.value.applyData?.[steps[index - 1].key])
 
-//         return {
-//             ...step,
-//             done,
-//             isCurrent,
-//             icon: done ? CircleCheckFilled : MoreFilled,
-//             color: done
-//                 ? 'var(--el-color-success)'
-//                 : isCurrent
-//                     ? 'var(--el-color-danger)'
-//                     : '#dcdfe6'
-//         }
-//     })
-// )
 
 const currentStep = computed(() => {
     if (!viewData?.value?.applyData) return 'upload'
@@ -660,6 +642,7 @@ const handleBatchDelete = async () => {
         if (newTaskResponse?.data) {
             taskListInServer.value = newTaskResponse.data;
             ElMessage.success('删除成功')
+            filteredTasks.value = taskListInServer.value
         }
 
     } catch (err) {
@@ -672,7 +655,7 @@ const viewTask = async (key) => {
 
     taskLoading.value = true
     showTask.value = true
-    console.log('taskListInServer', taskListInServer)
+    // console.log('taskListInServer', taskListInServer)
 
     console.log('key', key)
     const foundTask = taskListInServer.value?.find(item => item.taskKey === key)
@@ -723,28 +706,65 @@ const viewTask = async (key) => {
 const refreshOverflyData = async (newData) => {
     // console.log('curCountryData', curCountryData.value)
 
-    console.log('临时更新的data', newData)
+    // console.log('临时更新的data', newData)
 
-    // console.log('当前的viewData',viewData)
     curCountryData.value.overflyDetails = newData
     const idx = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
     viewData.value.data[idx] = curCountryData.value
-    console.log('变化后的curCountryData', curCountryData.value)
-    console.log('变化后的viewData', viewData.value.data)
+    // console.log('变化后的curCountryData', curCountryData.value)
+    // console.log('变化后的viewData', viewData.value.data)
 
 }
-function dedupeOverflyDetails(overflyDetails) {
-    const seen = new Set();
-    return overflyDetails.filter(detail => {
-        // 也可以换成 detail.sector 或者 detail.entryPoint+exitPoint
-        const key = `${detail.sector}-${detail.ATSroute}`;
-        if (seen.has(key)) {
-            return false;
-        }
-        seen.add(key);
-        return true;
-    });
+function dedupeOverflyDetails(overflyDetails, flightList) {
+  if (!Array.isArray(overflyDetails) || !Array.isArray(flightList)) {
+    return []
+  }
+  console.log('flightList',flightList)
+
+  /** 1️⃣ flight 顺序 Map */
+  const flightOrderMap = new Map()
+  flightList.forEach((f, i) => {
+    flightOrderMap.set(`${f.departure}-${f.arrival}`, i)
+  })
+  console.log('flightOrderMap',flightOrderMap)
+
+  /** 2️⃣ 去重 */
+  const seen = new Set()
+  const deduped = overflyDetails.filter(d => {
+    const key = `${d.sector}-${d.ATSroute}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  console.log('deputed',deduped)
+  /** 3️⃣ 按 flight 顺序排序（⚠️ 用 sector） */
+  deduped.sort((a, b) => {
+    const orderA = flightOrderMap.get(a.sector)
+    const orderB = flightOrderMap.get(b.sector)
+
+    if (orderA !== undefined && orderB !== undefined) {
+      return orderA - orderB
+    }
+    if (orderA !== undefined) return -1
+    if (orderB !== undefined) return 1
+    return 0
+  })
+
+  return deduped
 }
+
+// function dedupeOverflyDetails(overflyDetails,flightList) {
+//     const seen = new Set();
+//     return overflyDetails.filter(detail => {
+//         // 也可以换成 detail.sector 或者 detail.entryPoint+exitPoint
+//         const key = `${detail.sector}-${detail.ATSroute}`;
+//         if (seen.has(key)) {
+//             return false;
+//         }
+//         seen.add(key);
+//         return true;
+//     });
+// }
 
 /**
  * 对 viewData 中的每一条数据做去重
@@ -758,7 +778,7 @@ function dedupeViewData(viewData) {
         if (Array.isArray(item.overflyDetails)) {
             return {
                 ...item,
-                overflyDetails: dedupeOverflyDetails(item.overflyDetails)
+                // overflyDetails: dedupeOverflyDetails(item.overflyDetails, item.flightList)
             };
         }
 
@@ -932,7 +952,7 @@ const useChooseAircraft = () => {
 
         // useAllAircraftTypesRecord.value = viewData.value
         viewData.value = useAllAircraftTypes(viewData.value);
-        console.log('useAllAircraftTypes(viewData.value)', useAllAircraftTypes(viewData.value))
+        // console.log('useAllAircraftTypes(viewData.value)', useAllAircraftTypes(viewData.value))
         useAllAircraftTypesStatus.value = true
     } else if (mode === 'origin') {
         console.log('回到原周期')
@@ -942,7 +962,7 @@ const useChooseAircraft = () => {
         useAllAircraftTypesStatus.value = false
 
     }
-    console.log('点击全机型的viewData', viewData)
+    // console.log('点击全机型的viewData', viewData)
     // curCountryData.value = viewData.value.data[0]
     curCountryData.value = viewData.value.data.find(item => item.overflyCountry == curCountryInfo.value.country)
 }
@@ -1070,21 +1090,7 @@ const editPermission = (data) => {
         ...data,
         taskKey: viewData.value.taskKey
     }
-    // editData.value.fileName = multipleSelection.value[0].fileName
-    // editData.value.url = multipleSelection.value[0].url
-    // editData.value.permissionNumber = multipleSelection.value[0].permissionNumber
-    // editData.value.permissionId = multipleSelection.value[0].id
 
-    // editData.value.taskKey = multipleSelection.value[0].taskKey
-    // editData.value.curCountryData.flightList = multipleSelection.value[0].relateData.applyFlight
-    // editData.value.curCountryData.overflyDetails = multipleSelection.value[0].relateData.applyRoute
-    // if (!editData.value.fileDataByCountry[country]) {
-    //     editData.value.fileDataByCountry[country] = {}
-    // }
-    // editData.value.fileDataByCountry[country].permitFlight = multipleSelection.value[0].fileData.permitFlight
-    // editData.value.fileDataByCountry[country].permitRoute = multipleSelection.value[0].fileData.permitRoute
-
-    // console.log('editData', editData)
 
 }
 
@@ -1144,7 +1150,8 @@ const refreshTaskList = async () => {
                 );
             }
         }
-        console.log('taskListInServer', taskListInServer)
+        filteredTasks.value = taskListInServer.value
+        // console.log('taskListInServer', taskListInServer)
     }
 }
 const checkApplyData = async (task) => {
@@ -1261,6 +1268,78 @@ const aircraftTransferToOutput = (input, outputField) => {
 
     return results.join('/')
 }
+const sortedFlightList = computed(() => {
+    const list = curCountryData.value?.flightList || []
+    
+    // 1. 先按航班号排序
+    const sortedByFlightNum = [...list].sort((a, b) =>
+        String(a.flightNumber || '').localeCompare(
+            String(b.flightNumber || ''),
+            'en',
+            { numeric: true }
+        )
+    )
+    
+    // 2. 按路线分组
+    const groupedByRoute = {}
+    const routeOrder = []
+    
+    sortedByFlightNum.forEach(flight => {
+        const routeKey = `${flight.departure || ''}-${flight.arrival || ''}`
+        
+        if (!groupedByRoute[routeKey]) {
+            groupedByRoute[routeKey] = []
+            routeOrder.push(routeKey)
+        }
+        groupedByRoute[routeKey].push(flight)
+    })
+    
+    // 3. 重新组合：相同路线的放在一起
+    const result = []
+    
+    // 对每个路线的航班组按航班号排序（虽然已经排过，但再次确保）
+    routeOrder.forEach(routeKey => {
+        const flights = groupedByRoute[routeKey]
+        
+        // 如果只有1个航班，直接添加
+        if (flights.length === 1) {
+            result.push(...flights)
+        } else {
+            // 如果有多个航班，确保组内按航班号排序
+            flights.sort((a, b) =>
+                String(a.flightNumber || '').localeCompare(
+                    String(b.flightNumber || ''),
+                    'en',
+                    { numeric: true }
+                )
+            )
+            result.push(...flights)
+        }
+    })
+    
+    // 4. 最终结果已经满足：
+    //    - 相同路线的航班在一起
+    //    - 组内航班号从小到大
+    //    - 整体大致按航班号排序（但可能因为分组而有所调整）
+    return result
+})
+// const sortedFlightList = computed(() => {
+//     const list = curCountryData.value?.flightList || []
+//     return [...list].sort((a, b) =>
+//         String(a.flightNumber || '').localeCompare(
+//             String(b.flightNumber || ''),
+//             'en',
+//             { numeric: true }
+//         )
+//     )
+// })
+
+const sortedOverflyDetails = computed(() => {
+    return dedupeOverflyDetails(
+        curCountryData.value?.overflyDetails || [],
+        sortedFlightList.value
+    )
+})
 watch(
     () => curCountryData.value,
     (newVal) => {
@@ -1269,7 +1348,12 @@ watch(
             return
         }
         console.log('newVal', newVal)
-
+        // newVal.flightList.sort((a, b) => {
+        //     const fa = String(a.flightNumber || '')
+        //     const fb = String(b.flightNumber || '')
+        //     return fa.localeCompare(fb, 'en', { numeric: true })
+        // })
+        // dedupeOverflyDetails(newVal.overflyDetails,newVal.flightList)
         // 遍历 flightList 检查 days
         allFullCycle.value = newVal.flightList.every(flight => {
             const daysStr = Array.isArray(flight.days) ? flight.days.join("") : flight.days
@@ -1280,14 +1364,15 @@ watch(
     { deep: true, immediate: true }
 )
 const aircraftType = ref()
+//数据初始化
 onMounted(async () => {
     try {
-        // const flightResponse = await getFlights();
-        // await loadFlightData()
+
         loadingStatus.show('正在加载任务列表，请稍候...')
+        //所有任务列表
         const taskResponse = await getTaskList();
         taskListInServer.value = taskResponse.data
-        console.log('获取原始的taskListInServer', taskListInServer)
+        console.log('获取原始的任务列表数据：', taskListInServer)
         filteredTasks.value = taskListInServer.value
         const countryResponse = await getCountryRules()
         countryList.value = countryResponse.data
