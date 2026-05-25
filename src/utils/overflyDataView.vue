@@ -60,6 +60,7 @@ const props = defineProps({
 })
 const countryData = ref()
 watch(() => props.countryData, (val) => {
+    
     if (!val) return;
     loading.show('加载飞越航路数据...');
     countryData.value = val;
@@ -393,6 +394,7 @@ const editKeys = () => {
 
 }
 const validColumns = computed(() => {
+        console.log('父组件countryData.value,',countryData.value)
     if (!countryData.value || !countryData.value.applyRequire) {
         return [];
     }
@@ -468,6 +470,7 @@ watch(() => props.overflyDataFromFather, (val) => {
     } else {
         editableData.value = []
     }
+    console.log('飞越航路数据',editableData)
     // loading.hide()
 }, { immediate: true })
 

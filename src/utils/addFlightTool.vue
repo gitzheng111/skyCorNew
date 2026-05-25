@@ -22,12 +22,12 @@
                 <el-button type="primary" :disabled="!curSeason || !selectAttribution">上传Excel文件</el-button>
             </el-upload>
 
-            <el-tag v-if="addFlightDataForm.length">识别出{{ addFlightDataForm.length }}条航班</el-tag>
+            <el-tag v-if="flightFileData.length">识别出{{ flightFileData.length }}条航班</el-tag>
             <el-tag v-if="intlFlight.length">识别出{{ intlFlight.length }}条国际航班</el-tag>
             <el-tag v-if="countryFlight.length">识别出{{ countryFlight.length }}条国内航班</el-tag>
 
             <!-- excel数据表格 -->
-            <el-table :data="addFlightDataForm" v-if="addFlightDataForm.length" max-height="500"
+            <el-table :data="mappedFlights" v-if="mappedFlights.length" max-height="500"
                 :row-class-name="tableRowClassName">
                 <el-table-column v-for="col in columns" :key="col.prop" :prop="col.prop" :label="col.label" />
             </el-table>
@@ -121,7 +121,7 @@
             </el-row>
         </div>
         <div v-if="mode === 'manAdd'">
-            <el-table :data="addFlightForms" border style="width: 100%; margin-bottom: 10px;">
+            <el-table :data="mappedFlights" border style="width: 100%; margin-bottom: 10px;">
                 <el-table-column label="航季" width="150">
                     <template #default="{ row }">
                         <SeasonSelect v-model="row.season" />
@@ -140,13 +140,14 @@
                 <el-table-column label="航班号" width="150">
                     <template #default="{ row }">
                         <el-input v-model="row.flightNumber" placeholder="航班号" maxlength="6"
-                            @blur="validateFlightNumber(row)"  @input="row.flightNumber = row.flightNumber.toUpperCase()" />
+                            @blur="validateFlightNumber(row)"
+                            @input="row.flightNumber = row.flightNumber.toUpperCase()" />
                     </template>
                 </el-table-column>
 
                 <el-table-column label="起飞机场" width="150">
                     <template #default="{ row }">
-                        <AirportAutocomplete v-model="row.departure" @select="handleDepartureSelect"  />
+                        <AirportAutocomplete v-model="row.departure" @select="handleDepartureSelect" />
                     </template>
                 </el-table-column>
 
@@ -163,7 +164,7 @@
                     </template>
                 </el-table-column>
 
-                <el-table-column label="落地时间" >
+                <el-table-column label="落地时间">
                     <template #default="{ row }">
                         <TimeInput v-model="row.arrivalTime" mode="split" />
 
@@ -233,7 +234,7 @@
             </div>
 
             <div style="text-align: right">
-                <el-button type="primary" @click="syncDataToFather(mode)">创建</el-button>
+                <el-button type="primary" @click="syncDataToFather(mode)">{{editMode ? '更新' : '创建'}}</el-button>
             </div>
         </div>
         <addDataTool :mode="'airport'" v-model:visible="showAddAirport" :isEditing="editAirportMode"
@@ -249,7 +250,7 @@
 </template>
 
 <script setup>
-import { ref, watch, toRaw, nextTick } from 'vue'
+import { ref, watch, toRaw, nextTick, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 import airportsCheck from 'airport-codes'
 import { ElMessage } from 'element-plus'
@@ -258,7 +259,7 @@ import SeasonSelect from '../utils/seasonSelect.vue'
 import { useSeasonData } from '../components/useSeasonUtils.js'
 import { beijingToUTC, utcToBeijing, formatTimeWithoutColon, formatTimeWithColon, beijingToLocal } from '../utils/timeTransfer';
 import { transferToOutput, disMatchList } from '../utils/airportCodeTool'
-import { attributeData, aircraftData, getAirportCode, addAirportCode } from '../api'
+import { attributeData, aircraftData, getAirportCode, addAirportCode, getAircraftType } from '../api.js'
 import daysPicker from '../utils/daysPicker.vue'
 import { validateFlightNumber, normalizeDays, formatDate, normalizeDate } from '../utils/tool.js'
 import addDataTool from '../utils/addDataTool.vue'
@@ -356,22 +357,22 @@ const formatMinute = (row) => {
     mergeTime(row)
 }
 const formatYear = (row) => {
-  if (row._year !== '') {
-    let y = Number(row._year)
-    if (y > 2100) y = 2100
-    row._year = String(y)
-  }
-  mergeDate(row)
+    if (row._year !== '') {
+        let y = Number(row._year)
+        if (y > 2100) y = 2100
+        row._year = String(y)
+    }
+    mergeDate(row)
 }
 
 
 const formatMonth = (row) => {
-  if (row._month !== '') {
-    let m = Number(row._month)
-    if (m > 12) m = 12
-    row._month = String(m).padStart(2, '0')
-  }
-  mergeDate(row)
+    if (row._month !== '') {
+        let m = Number(row._month)
+        if (m > 12) m = 12
+        row._month = String(m).padStart(2, '0')
+    }
+    mergeDate(row)
 }
 const formatDay = (row) => {
     if (row._day !== '') {
@@ -391,15 +392,15 @@ const mergeTime = (row) => {
 
 
 const mergeDate = (row) => {
-  if (
-    row._year?.length === 4 &&
-    row._month?.length === 2 &&
-    row._day?.length === 2
-  ) {
-    row.startDate = `${row._year}/${row._month}/${row._day}`
-  } else {
-    row.startDate = ''
-  }
+    if (
+        row._year?.length === 4 &&
+        row._month?.length === 2 &&
+        row._day?.length === 2
+    ) {
+        row.startDate = `${row._year}/${row._month}/${row._day}`
+    } else {
+        row.startDate = ''
+    }
 }
 const initRowTime = (row) => {
     if (row.arrivalTime) {
@@ -426,21 +427,64 @@ const labelOptions = [
     }]
 
 const calcFlightLabel = (row, season) => {
-    console.log('season', season)
-    console.log('row', row)
-    if (!row.startDate || !row.endDate) return ''
+    // console.log('计算标签！！',row, season)
 
     if (
-        normalizeDate(row.startDate) === season.current.seasonStart &&
-        normalizeDate(row.endDate) === season.current.seasonEnd
+        !row?.startDate ||
+        !row?.endDate ||
+        !season
     ) {
-        return '换季航班'
+        return ''
     }
 
-    return '季中新增'
-}
+    const seasonStart =
+        normalizeDate(
+            season.seasonStart ||
+            season.current?.seasonStart
+        )
 
-console.log('parentFlights', props.originData)
+    const seasonEnd =
+        normalizeDate(
+            season.seasonEnd ||
+            season.current?.seasonEnd
+        )
+
+    const rowStart =
+        normalizeDate(row.startDate)
+
+    const rowEnd =
+        normalizeDate(row.endDate)
+
+    console.log({
+        rowStart,
+        rowEnd,
+        seasonStart,
+        seasonEnd
+    })
+
+    return (
+        rowStart === seasonStart &&
+        rowEnd === seasonEnd
+    )
+        ? '换季航班'
+        : '季中新增'
+}
+// const calcFlightLabel = (row, season) => {
+//     // console.log('season', season)
+//     // console.log('row', row)
+//     if (!row.startDate || !row.endDate) return ''
+
+//     if (
+//         normalizeDate(row.startDate) === season.current.seasonStart &&
+//         normalizeDate(row.endDate) === season.current.seasonEnd
+//     ) {
+//         return '换季航班'
+//     }
+
+//     return '季中新增'
+// }
+
+// console.log('parentFlights', props.originData)
 import AirportAutocomplete from '../utils/airportAutocomplete.vue'
 
 watch(() => props.visible, val => (visible.value = val))
@@ -448,22 +492,27 @@ watch(visible, val => emit('update:visible', val))
 
 const curSeason = ref()
 const selectedSeason = ref()
-watch(curSeason, (val) => {
-    selectedSeason.value = seasonData.value.find(item => item.en === val)
-    console.log('选中的航季:', selectedSeason)
-    if (addFlightDataForm.value) {
-        addFlightDataForm.value.forEach(item => {
-            item.season = selectedSeason.value.en
-            item.startDate = selectedSeason.value.seasonStart
-            item.endDate = selectedSeason.value.seasonEnd
 
-        })
-    }
-})
+
+// watch(
+//     mappedFlights,
+//     (rows) => {
+//         rows.forEach(row => {
+//             // 只有没被人工改过，才算默认值
+//             // console.log('currentSeasonData',currentSeasonData,'selectedSeason',selectedSeason)
+//             row.label = calcFlightLabel(row, selectedSeason.value)
+//             // if (!row.labelManual) {
+//             //     row.label = calcFlightLabel(row, currentSeason)
+//             // }
+//         })
+//     },
+//     { deep: true, immediate: true }
+// )
+
 watch(selectAttribution, (val) => {
 
-    if (addFlightDataForm.value) {
-        addFlightDataForm.value.forEach(item => {
+    if (flightFileData.value) {
+        flightFileData.value.forEach(item => {
             item.attribution = selectAttribution.value
 
         })
@@ -480,7 +529,7 @@ const columns = [
     { prop: 'departureTime', label: '起飞时间' },
     { prop: 'arrival', label: '落地机场' },
     { prop: 'arrivalTime', label: '落地时间' },
-    { prop: 'flightType', label: '航班类型' }
+    { prop: 'label', label: '换季/季中' }
 ]
 const options = [
     {
@@ -504,7 +553,7 @@ const emptyForm = () => ({
     departureTime: '',
     arrival: '',
     arrivalTime: '',
-    aircraftType: '',
+    aircraftType: [],
     startDate: '',
     endDate: '',
     label: '',
@@ -512,20 +561,8 @@ const emptyForm = () => ({
 })
 
 
-const addFlightForms = ref([])
-watch(
-    addFlightForms,
-    (rows) => {
-        rows.forEach(row => {
-            // 只有没被人工改过，才算默认值
-            row.label = calcFlightLabel(row, currentSeasonData)
-            // if (!row.labelManual) {
-            //     row.label = calcFlightLabel(row, currentSeason)
-            // }
-        })
-    },
-    { deep: true, immediate: true }
-)
+const mappedFlights = ref([])
+
 // 映射父组件传来的编辑数据到表单结构
 const mapEditData = (data) => {
     const arrayData = Array.isArray(data) ? data : [data];
@@ -534,12 +571,17 @@ const mapEditData = (data) => {
         season: f.season || '',
         attribution: f.attribution || '',
         flightNumber: f.flightNumber || f.flightNumber || '',
-        
+
         departure: f.departure || f.departure || '',
         departureTime: f.departureTime || f.departureTime || '',
         arrival: f.arrival || f.arrival || '',
         arrivalTime: f.arrivalTime || f.arrivalTime || '',
-        aircraftType: f.aircraftType || '',
+        // aircraftType: f.aircraftType || '',
+        aircraftType: Array.isArray(f.aircraftType)
+            ? f.aircraftType
+            : (f.aircraftType
+                ? String(f.aircraftType).split(',')
+                : []),
         startDate: f.startDate || '',
         endDate: f.endDate || '',
         label: f.label || '',
@@ -577,19 +619,19 @@ const prepRowData = (row) => {
 watch(
     () => [props.isEditing, props.editData],
     (val) => {
-        console.log('props.editData', props.editData, ' props.isEditing', props.isEditing)
+        // console.log('props.editData', props.editData, ' props.isEditing', props.isEditing)
         if (val && props.editData) {
             editMode.value = true
             mode.value = 'manAdd'
-            addFlightForms.value = mapEditData(props.editData)
-            // addFlightForms.value.map(i=>{
+            mappedFlights.value = mapEditData(props.editData)
+            // mappedFlights.value.map(i=>{
             //     prepRowData(i)
             // })
-            console.log('mode', mode.value)
+            // console.log('mode', mode.value)
 
-            console.log('addFlightForms', addFlightForms.value)
+            // console.log('mappedFlights', mappedFlights.value)
         } else {
-            addFlightForms.value = []
+            mappedFlights.value = []
         }
     },
     { immediate: true }
@@ -616,7 +658,7 @@ const modeLabels = {
     byExcel: "Excel 导入",
     autoRead: "自动识别"
 }
-const addFlightDataForm = ref([])
+const flightFileData = ref([])
 const intlFlight = ref([])
 const countryFlight = ref([])
 const attributionOption = ['schedule', 'non-schedule']
@@ -632,7 +674,7 @@ const showConflictDialog2 = ref(false)
 
 const addRow = () => {
 
-    addFlightForms.value.push(emptyForm())
+    mappedFlights.value.push(emptyForm())
 }
 // const emptyForm = () => ({
 //     season: '',
@@ -672,8 +714,8 @@ const getReturnNumber = (input) => {
     return prefix + String(num).padStart(width, '0')
 }
 const addReturnRow = (index) => {
-    const inputNow = addFlightForms.value[index]
-    console.log('inputNow', inputNow)
+    const inputNow = mappedFlights.value[index]
+    // console.log('inputNow', inputNow)
     const returnRow = {
         ...inputNow,          //  拷贝原行
         flightNumber: getReturnNumber(inputNow.flightNumber),
@@ -684,28 +726,81 @@ const addReturnRow = (index) => {
         // labelManual: false,   //  新行默认自动计算标签
     }
 
-    console.log('returnRow', returnRow)
+    // console.log('returnRow', returnRow)
 
-    addFlightForms.value.push(returnRow)
+    mappedFlights.value.push(returnRow)
 
-    // addFlightForms.value.push(emptyForm())
+    // mappedFlights.value.push(emptyForm())
 }
 const needReturnCheck = (index) => {
-    const inputNow = addFlightForms.value[index]
+    const inputNow = mappedFlights.value[index]
     const num = inputNow.flightNumber.slice(-2)
     const needReturn = num % 2 === 1 ? true : false
     return needReturn
 }
 
 const removeRow = (index) => {
-    addFlightForms.value.splice(index, 1)
+    mappedFlights.value.splice(index, 1)
 }
-
+const aircraftAliasMap = ref({})
 const submit = () => {
-    console.log(' addFlightForms.value', addFlightForms.value)
+    // console.log(' mappedFlights.value', mappedFlights.value)
 }
 const aircraftNumberData = ref([])
-const handleSelect_ACType = (selectedTypes) => {
+const getACtypeFromServer = async () => {
+    const ACdata = await getAircraftType()
+    console.log('ACdata', ACdata)
+
+    const map = {}
+
+    ACdata.data.forEach(item => {
+
+        // 标准名称
+        map[item.aircraftType.toUpperCase()] =
+            item.aircraftType
+
+        const another =
+            item.anotherName || {}
+
+        // 民航局名称
+        if (another.caacName) {
+
+            map[
+                another.caacName.toUpperCase()
+            ] = item.aircraftType
+        }
+
+        // ICAO名称
+        if (another.icaoName) {
+
+            map[
+                another.icaoName.toUpperCase()
+            ] = item.aircraftType
+        }
+
+        // 简写名称
+        if (another.shortName) {
+
+            another.shortName
+                .split(',')
+                .forEach(alias => {
+
+                    map[
+                        alias.trim().toUpperCase()
+                    ] = item.aircraftType
+                })
+        }
+    })
+
+    aircraftAliasMap.value = map
+
+    console.log(
+        '机型别名映射',
+        aircraftAliasMap.value
+    )
+}
+const handleSelect_ACType = async (selectedTypes) => {
+    console.log('输入的机型', selectedTypes)
     aircraftNumberData.value = [];
 
     selectedTypes.forEach(type => {
@@ -733,6 +828,7 @@ const needToMapData = ref([])
 const syncDataToFather = () => {
     // console.log('需要申请的机场代码',disMatchList)
     console.log('需要申请的机场代码', disMatchList)
+    console.log('点击更新后', mappedFlights.value)
 
     if (disMatchList.length != 0) {
         showAddAirport.value = true
@@ -741,10 +837,10 @@ const syncDataToFather = () => {
         showAddAirport.value = false
         editAirportMode.value = false
         if (mode.value == 'manAdd') {
-            needToMapData.value = addFlightForms.value
+            needToMapData.value = mappedFlights.value
 
         } if (mode.value == 'byExcel') {
-            needToMapData.value = addFlightDataForm.value
+            needToMapData.value = mappedFlights.value
         }
 
         if (!curSeason) {
@@ -755,8 +851,8 @@ const syncDataToFather = () => {
             ElMessage.error('请选择航班性质');
             return;
         }
-
-        console.log('needToMapData', needToMapData)
+        //最后提交前统一一遍
+        // console.log('needToMapData', needToMapData)
         const mappedData = needToMapData.value.map(f => ({
             flight_id: f.flight_id || '',
             season: f.season,
@@ -766,14 +862,17 @@ const syncDataToFather = () => {
             departureTime: formatTimeWithColon(f.departureTime),
             arrival: f.arrival || f.arrival,
             arrivalTime: formatTimeWithColon(f.arrivalTime),
-            aircraftType: f.aircraftType || f.aircraftType,
+            aircraftType: Array.isArray(f.aircraftType)
+                ? f.aircraftType.join(',')
+                : f.aircraftType,
+            // aircraftType: f.aircraftType || f.aircraftType,
             // aircraftNumber: f.flightNumber,
-            startDate: formatDate(f.startDate || selectedSeason.value.seasonStart),
-            endDate: formatDate(f.endDate || selectedSeason.value.seasonEnd),
+            startDate: formatDate(f.startDate),
+            endDate: formatDate(f.endDate),
             label: f.label,
             days: normalizeDays(f.days) // 转成数组
         }))
-        console.log('mappedData', mappedData)
+        console.log('子传给父mappedData', mappedData)
         // return
         emit("parsed", mappedData)
         // 关闭弹窗
@@ -786,11 +885,11 @@ const syncDataToFather = () => {
 
 const addAirportData = ref()
 const handleAirportData = async (processedDataFromChild) => {
-    console.log("父组件收到数据:", processedDataFromChild)
+    // console.log("父组件收到数据:", processedDataFromChild)
     addAirportData.value = processedDataFromChild
     //     ? processedDataFromChild
     //     : [emptyFlight()]
-    // console.log('addFlightForms', addFlightForms.value)
+    // console.log('mappedFlights', mappedFlights.value)
     await onSubmitAirport()
 }
 const airportData = ref([])
@@ -812,7 +911,7 @@ const onSubmitAirport = async () => {
             ElMessage.error('失败');
             console.error('添加失败:', err);
         });
-        console.log('airportResponse ====', airportResponse)
+        // console.log('airportResponse ====', airportResponse)
     } else {
 
         const airportResponse = await addAirportCode(submitData).then(() => {
@@ -822,7 +921,7 @@ const onSubmitAirport = async () => {
         }).catch(err => {
             console.error('添加失败:', err);
         });
-        console.log('airportResponse ====', airportResponse)
+        // console.log('airportResponse ====', airportResponse)
 
     }
 
@@ -837,12 +936,12 @@ async function handleFile(file) {
         const worksheet = workbook.Sheets[workbook.SheetNames[0]]
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
         const rows = jsonData.filter(r => r.some(c => c !== ''))
-        console.log('识别的excel原始文件rows', rows)
+        // console.log('识别的excel原始文件rows', rows)
 
         const flightMap = {}
         for (const [rowIndex, row] of rows.entries()) {
             const segments = await parseFlightRow(row)
-            console.log('segments', segments)
+            // console.log('segments', segments)
             if (!segments.length) continue
 
             for (const seg of segments) {   // ✅ 遍历每个航段
@@ -874,7 +973,7 @@ async function handleFile(file) {
 
         // 构建冲突航班列表 / 已处理航班列表
         conflictList.value = []
-        addFlightDataForm.value = []
+        flightFileData.value = []
 
         Object.values(flightMap).forEach(f => {
             if (f.timeOptions.length > 1) {
@@ -886,8 +985,8 @@ async function handleFile(file) {
                     order: f.order   // ✅ 用 f.order，而不是 rowIndex
                 })
             } else {
-                // 无冲突 -> 直接放到 addFlightDataForm
-                addFlightDataForm.value.push({
+                // 无冲突 -> 直接放到 flightFileData
+                flightFileData.value.push({
                     season: f.season,
                     attribution: f.attribution,
                     flightNumber: f.flightNumber,
@@ -899,7 +998,7 @@ async function handleFile(file) {
                     days: f.days,
                     flightType: getFlightType(f.departure, f.arrival),
                     _highlight: false,
-                    order: f.order   // ✅
+                    order: f.order
                 })
             }
         })
@@ -910,12 +1009,12 @@ async function handleFile(file) {
             showConflictDialog.value = true
         }
 
-        addFlightDataForm.value.sort((a, b) => a.order - b.order)
-        console.log('addFlightDataForm', addFlightDataForm)
-        intlFlight.value = addFlightDataForm.value.filter(item => item.flightType == '国际')
-        countryFlight.value = addFlightDataForm.value.filter(item => item.flightType == '国内')
-        console.log('intlFlight', intlFlight)
-        console.log('countryFlight', countryFlight)
+        flightFileData.value.sort((a, b) => a.order - b.order)
+        console.log('输入文件的航班数据', flightFileData)
+        intlFlight.value = flightFileData.value.filter(item => item.flightType == '国际')
+        countryFlight.value = flightFileData.value.filter(item => item.flightType == '国内')
+        // console.log('intlFlight', intlFlight)
+        // console.log('countryFlight', countryFlight)
     }
     reader.readAsArrayBuffer(file.raw)
 
@@ -928,11 +1027,11 @@ const removedSectorsData = ref([])
 
 const conflictWithOrigin = ref([])
 const compareSectors = () => {
-    const processedSectors = addFlightDataForm.value.map(f => `${f.flightNumber}_${f.departure}_${f.arrival}`)
+    const processedSectors = flightFileData.value.map(f => `${f.flightNumber}_${f.departure}_${f.arrival}`)
     const originalSectors = props.originData.map(f => `${f.flightNumber}_${f.departure}_${f.arrival}`)
 
     addedSectors.value = processedSectors.filter(sector => !originalSectors.includes(sector))
-    addedSectorsData.value = addFlightDataForm.value.filter(item => {
+    addedSectorsData.value = flightFileData.value.filter(item => {
         const sectorKey = `${item.flightNumber}_${item.departure}_${item.arrival}`;
         return addedSectors.value.includes(sectorKey);
     });
@@ -949,7 +1048,7 @@ const compareSectors = () => {
 
     conflictWithOrigin.value = []
 
-    addFlightDataForm.value.forEach(f => {
+    flightFileData.value.forEach(f => {
         const existing = props.originData.find(o => `${o.flightNumber}_${o.departure}_${o.arrival}` === `${f.flightNumber}_${f.departure}_${f.arrival}`)
 
         if (existing) {
@@ -962,7 +1061,7 @@ const compareSectors = () => {
 
             if (Object.keys(conflicts).length > 0) {
                 conflictWithOrigin.value.push({ ...f, conflicts, isDuplicate: false })
-                console.log('conflictWithOrigin', conflictWithOrigin)
+                // console.log('conflictWithOrigin', conflictWithOrigin)
             } else {
                 // 如果没有冲突，标记为重复航班
                 conflictWithOrigin.value.push({ ...f, isDuplicate: true })  // 标记为重复航班
@@ -978,7 +1077,7 @@ const compareSectors = () => {
 }
 
 const handleConflictAction = (row, action) => {
-    const processedFlight = addFlightDataForm.value.find(f => f.flightNumber === row.flightNumber && f.departure === row.departure && f.arrival === row.arrival)
+    const processedFlight = flightFileData.value.find(f => f.flightNumber === row.flightNumber && f.departure === row.departure && f.arrival === row.arrival)
     const originalFlight = props.originData.find(f => f.flightNumber === row.flightNumber && f.departure === row.departure && f.arrival === row.arrival)
 
     if (action === 'merge') {
@@ -988,7 +1087,7 @@ const handleConflictAction = (row, action) => {
 
             // 合并时间字段，选择最新的时间
             if (processedFlight.departureTime !== originalFlight.departureTime) {
-                mergedFlight.departureTime = processedFlight.departureTime // 选择 addFlightDataForm 的时间，或者合并为一个新的字段
+                mergedFlight.departureTime = processedFlight.departureTime // 选择 flightFileData 的时间，或者合并为一个新的字段
             }
 
             if (processedFlight.arrivalTime !== originalFlight.arrivalTime) {
@@ -1003,11 +1102,11 @@ const handleConflictAction = (row, action) => {
             mergedFlight.days = mergeDays(processedFlight.days, originalFlight.days)
 
             // 更新处理过的航段
-            const idx = addFlightDataForm.value.findIndex(f => f.flightNumber === processedFlight.flightNumber && f.departure === processedFlight.departure && f.arrival === processedFlight.arrival)
+            const idx = flightFileData.value.findIndex(f => f.flightNumber === processedFlight.flightNumber && f.departure === processedFlight.departure && f.arrival === processedFlight.arrival)
             if (idx !== -1) {
-                addFlightDataForm.value[idx] = mergedFlight
+                flightFileData.value[idx] = mergedFlight
             } else {
-                addFlightDataForm.value.push(mergedFlight)
+                flightFileData.value.push(mergedFlight)
             }
 
             // 移除原航段
@@ -1020,18 +1119,18 @@ const handleConflictAction = (row, action) => {
     } else if (action === 'keepBoth') {
         // 保留两条数据
         if (processedFlight && originalFlight) {
-            // 保留 addFlightDataForm 中的航段
+            // 保留 flightFileData 中的航段
             const newFlight = { ...processedFlight }
-            addFlightDataForm.value.push(newFlight)
+            flightFileData.value.push(newFlight)
 
             // 保留 originData 中的航段
             const originalCopy = { ...originalFlight }
             props.originData.push(originalCopy)
         }
     } else if (action === 'keepOne') {
-        // 保留 addFlightDataForm 中的航段，更新 originData 中的航段
+        // 保留 flightFileData 中的航段，更新 originData 中的航段
         if (processedFlight && originalFlight) {
-            // 更新原始数据的字段为 addFlightDataForm 中的内容
+            // 更新原始数据的字段为 flightFileData 中的内容
             originalFlight.departureTime = processedFlight.departureTime
             originalFlight.arrivalTime = processedFlight.arrivalTime
             originalFlight.aircraftType = processedFlight.aircraftType
@@ -1040,10 +1139,10 @@ const handleConflictAction = (row, action) => {
             originalFlight.departure = processedFlight.departure
             originalFlight.arrival = processedFlight.arrival
 
-            // 更新 addFlightDataForm
-            const idx = addFlightDataForm.value.findIndex(f => f.flightNumber === processedFlight.flightNumber && f.departure === processedFlight.departure && f.arrival === processedFlight.arrival)
+            // 更新 flightFileData
+            const idx = flightFileData.value.findIndex(f => f.flightNumber === processedFlight.flightNumber && f.departure === processedFlight.departure && f.arrival === processedFlight.arrival)
             if (idx !== -1) {
-                addFlightDataForm.value[idx] = { ...processedFlight }
+                flightFileData.value[idx] = { ...processedFlight }
             }
 
             // 更新 props.originData 数据
@@ -1082,11 +1181,11 @@ function confirmConflictSelectionWithOrigin() {
             order: item.order
         }
 
-        const idx = addFlightDataForm.value.findIndex(f => f.order === item.order)
+        const idx = flightFileData.value.findIndex(f => f.order === item.order)
         if (idx !== -1) {
-            addFlightDataForm.value[idx] = newFlight
+            flightFileData.value[idx] = newFlight
         } else {
-            addFlightDataForm.value.push(newFlight)
+            flightFileData.value.push(newFlight)
         }
     })
 
@@ -1097,7 +1196,7 @@ function confirmConflictSelectionWithOrigin() {
 const flightNoRegex = /^(MF|CXA)\d{3,4}$/
 const airportRegex = /^[A-Z]{3,4}$/
 // const timeRegex = /^([01]\d|2[0-3])([0-5][05])$/;
-const aircraftRegex = /^(738|737|787|788|789|7M8|321)$/
+const aircraftRegex = /^(738|737|787|788|789|7M8|321|78A|78B|78Y)$/
 
 // const timeRegex = /^\d{3,4}$/
 // const daysRegex = /^[\.1-7]{7}$/ // 班期
@@ -1113,6 +1212,17 @@ function isTime(val) {
         mm % 5 === 0                 // ✅ 分钟必须以0或5结尾
     );
 }
+function normalizeAircraftType(val) {
+
+    if (!val) return ''
+
+    const key =
+        String(val)
+            .trim()
+            .toUpperCase()
+
+    return aircraftAliasMap.value[key] || ''
+}
 async function parseFlightRow(row) {
     // console.log('row', row)
 
@@ -1125,23 +1235,34 @@ async function parseFlightRow(row) {
             .replace(/\s/g, '')        // 去掉普通空格
             .replace(/[\u200B-\u200D\uFEFF]/g, '') // 去掉零宽字符
             .replace(/[０-９]/g, c => String(c.charCodeAt(0) - 0xFF10)) // 全角数字转半角
-        console.log('cell:', cell, '-> val:', val,
-            'flight?', flightNoRegex.test(val),
-            'aircraftType?', aircraftRegex.test(val),
-            'days?', daysRegex.test(val),
-            'time?', isTime(val),
-            'airport?', airportRegex.test(val));
+        // console.log('cell:', cell, '-> val:', val,
+        //     'flight?', flightNoRegex.test(val),
+        //     'aircraftType?', aircraftRegex.test(val),
+        //     'days?', daysRegex.test(val),
+        //     'time?', isTime(val),
+        //     'airport?', airportRegex.test(val));
         if (flightNoRegex.test(val)) {
             flightNumber = val
         } else if (airportRegex.test(val)) {
             airports.push(transferToOutput(val, 'ICAOCode'))
-        } else if (aircraftRegex.test(val)) {
-            aircraftType = val
         }
+        // else if (aircraftRegex.test(val)) {
+        //     aircraftType = val
+        // }
         else if (isTime(val)) {
             times.push(val);  // ✅ 不要限制次数，全部收集
         } else if (daysRegex.test(val)) {
             days = val;
+        } else {
+
+            const normalizedAircraft =
+                normalizeAircraftType(val)
+
+            if (normalizedAircraft) {
+
+                aircraftType =
+                    normalizedAircraft
+            }
         }
         //  else if (isTime(val)) {
         //     // ⚠️ 如果 times 已经有两个，就不再当时间，转为 days 判断
@@ -1232,11 +1353,11 @@ function confirmConflictSelection() {
         }
 
         // 找到对应位置
-        const idx = addFlightDataForm.value.findIndex(f => f.order === item.order)
+        const idx = flightFileData.value.findIndex(f => f.order === item.order)
         if (idx !== -1) {
-            addFlightDataForm.value[idx] = newFlight  // 替换
+            flightFileData.value[idx] = newFlight  // 替换
         } else {
-            addFlightDataForm.value.push(newFlight)  // 如果没找到就插入
+            flightFileData.value.push(newFlight)  // 如果没找到就插入
         }
     })
 
@@ -1244,7 +1365,7 @@ function confirmConflictSelection() {
     showConflictDialog.value = false
 
     // ✅ 再按照原始顺序排序一次
-    addFlightDataForm.value.sort((a, b) => a.order - b.order)
+    flightFileData.value.sort((a, b) => a.order - b.order)
 }
 
 // 表格行样式
@@ -1253,22 +1374,86 @@ function tableRowClassName({ row }) {
 }
 
 watch(
-    () => addFlightDataForm.value,
+    () => flightFileData.value,
     (val) => {
-        addFlightForms.value = mapEditData(addFlightDataForm.value)
-        console.log('映射到表格数据', addFlightForms.value)
+        mappedFlights.value = mapEditData(flightFileData.value)
+        console.log('收到新的文件数据，映射为：', mappedFlights.value)
         // if (val && props.editData) {
         //     editMode.value = true
         //     mode.value = 'manAdd'
         //     console.log('mode',mode.value)
 
-        //     console.log('addFlightForms',addFlightForms.value)
+        //     console.log('mappedFlights',mappedFlights.value)
         // } else {
-        //     addFlightForms.value = []
+        //     mappedFlights.value = []
         // }
     },
     { immediate: true }
 )
+watch(
+    [
+        () => mappedFlights.value,
+        () => curSeason.value
+    ],
+    ([rows, season]) => {
+
+        console.log(
+            '当前航季信息',
+            currentSeasonData.current
+        )
+
+        const selectedSeason =
+            season === currentSeasonData.current.en
+                ? currentSeasonData.current
+                : currentSeasonData.next
+
+        console.log(
+            '真正选中的航季',
+            selectedSeason
+        )
+
+        if (!rows?.length || !selectedSeason) return
+
+        rows.forEach(item => {
+
+            item.season =
+                selectedSeason.en
+
+            item.startDate =
+                item.startDate ||
+                selectedSeason.seasonStart
+
+            item.endDate =
+                item.endDate ||
+                selectedSeason.seasonEnd
+
+            if (
+                item.startDate &&
+                item.endDate
+            ) {
+
+                item.label =
+                    calcFlightLabel(
+                        item,
+                        selectedSeason
+                    )
+            }
+        })
+        console.log(
+            '修改后mappedFlights',
+            mappedFlights
+        )
+    },
+    {
+        deep: true,
+        immediate: true
+    }
+)
+
+onMounted(() => {
+    getACtypeFromServer()
+})
+
 </script>
 
 <style>

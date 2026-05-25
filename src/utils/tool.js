@@ -216,3 +216,8 @@ export const daysArrayToString = (daysArray) => {
     .map((val, idx) => (val === '1' ? (idx + 1).toString() : '')) // 有效的天数
     .join('');
 };
+
+//转成正常文字
+export function fixFilenameEncoding(filename) {
+  return Buffer.from(filename, 'latin1').toString('utf8');
+}

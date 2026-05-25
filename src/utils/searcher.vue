@@ -11,6 +11,11 @@
               <el-option v-for="item in labelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </template>
+          <template v-else-if="field.prop === 'attribution'">
+            <el-select v-model="searchForm[field.prop]" placeholder="请选择航班性质" style="width: 240px">
+              <el-option v-for="item in attributionOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </template>
           <template v-else-if="field.prop === 'departure' || field.prop === 'arrival' || field.prop === 'routeCode'">
             <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable
               @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
@@ -64,6 +69,15 @@ const labelOptions = [
     value: '换季航班',
     label: '换季航班',
   },]
+const attributionOptions = [
+  {
+    value: 'Schedule',
+    label: '定期',
+  },
+  {
+    value: 'nonSchedule',
+    label: '非定期',
+  },]
 const chooseDate = () => {
   searchForm['dateBetween'] = dateRange.value
 
@@ -114,7 +128,7 @@ const fieldMap = {
     { label: '飞越国家', prop: 'overflyCountry' },
     { label: '选择日期', prop: 'dateBetween' },
     { label: '标签', prop: 'label' },
-
+    { label: '航班性质', prop: 'attribution' },
   ],
   route: [
     { label: '航季', prop: 'season' },

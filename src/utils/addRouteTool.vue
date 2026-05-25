@@ -1,202 +1,247 @@
 <template>
     <el-dialog v-model="showAddRoute" :title="isEditing ? '批量编辑航路' : '新增航路'" width="95%">
         <!-- 模式选择 -->
+        <el-steps :active="step" align-center finish-status="success" class="steps">
+            <el-step title="选择航季和输入方式" />
+            <el-step title="输入数据" />
+            <el-step title="检查" />
+            <el-step title="提交" />
+        </el-steps>
 
         <div class="dialog-body">
+            <div v-if="step === 0" class="panel">
 
+                <h3>选择输入方式</h3>
+                <el-radio-group v-model="mode">
+                    <el-radio-button label="manAdd">
+                        手动输入
+                    </el-radio-button>
+                    <el-radio-button label="byExcel">
+                        Excel导入
+                    </el-radio-button>
+                    <el-radio-button label="autoRead">
+                        自动识别
+                    </el-radio-button>
 
+                </el-radio-group>
+                <!-- <el-select v-if="!isEditing" v-model="mode" placeholder="请选择输入方式" style="margin-bottom: 20px;">
+                    <el-option v-for="item in modeOption" :key="item" :label="modeLabels[item]" :value="item" />
+                </el-select> -->
+                <div style="margin: 20px 20px;">
+                    <SeasonSelect v-model="curSeason" />
 
-            <el-select v-if="!isEditing" v-model="mode" placeholder="请选择输入方式" style="margin-bottom: 20px;">
-                <el-option v-for="item in modeOption" :key="item" :label="modeLabels[item]" :value="item" />
+                </div>
+
+            </div>
+            <div v-if="step === 1" class="panel">
+
+                <!-- 手动新增 -->
+                <div v-if="mode == 'manAdd'">
+
+                    <div v-for="(form, index) in addRouteForms" :key="index"
+                        style="border-bottom: 1px solid #eee; padding: 10px 0">
+                        <el-form ref="formRef" :model="form" label-width="100px">
+                            <!-- <el-form-item label="航季">
+                                <SeasonSelect v-model="form.season" />
+                            </el-form-item> -->
+                            <el-form-item label="起飞机场">
+                                <AirportAutocomplete v-model="form.departure" @select="handleDepartureSelect" />
+                            </el-form-item>
+                            <el-form-item label="目的机场">
+                                <AirportAutocomplete v-model="form.arrival" @select="handleArrivalSelect" />
+                            </el-form-item>
+                            <el-form-item label="航段">
+                                <el-input v-model="form.sector" placeholder="航段" />
+                            </el-form-item>
+                            <el-form-item label="航路">
+                                <el-input v-model="form.ATSroute" placeholder="航路" />
+                            </el-form-item>
+                            <el-form-item label="航线代码">
+                                <el-input v-model="form.routeCode" placeholder="航线代码" />
+                            </el-form-item>
+                            <el-form-item label="飞越国家">
+                                <el-tabs v-model="clickCountry" @tab-click="changeCountry">
+                                    <el-tab-pane v-for="(c, idx) in form.overflyCountry" :key="idx" :name="c.country">
+                                        <template #label>
+                                            <span>
+                                                {{ c.country }}
+                                            </span>
+                                        </template>
+                                        <div>
+                                            <overflyDataView :mode="'forever'" :editShow="true"
+                                                :overflyDataFromFather="c.overflyDetails" :allData="form.overflyCountry"
+                                                :curSeason="curSeason" :countryData="selectCountryData(c.country)"
+                                                @updateFinish="refreshOverflyData" />
+                                        </div>
+                                        <el-button type="danger" @click="form.overflyCountry.splice(idx, 1)">删除 {{
+                                            c.country
+                                        }}</el-button>
+                                    </el-tab-pane>
+
+                                </el-tabs>
+
+                                <el-button type="primary" link @click="addCountry(form)">+ 添加国家</el-button>
+
+                            </el-form-item>
+                            <el-button @click="deleteRow(index)">删除</el-button>
+
+                            <!-- 飞越国家 -->
+                            <!-- <el-form-item label="飞越国家">
+            <el-select v-model="form.overflyCountryNames" multiple filterable remote
+                :reserve-keyword="false" placeholder="飞越国家" :remote-method="countrySearch"
+                :loading="loadingCountries" @change="val => onCountryChange(val, index)"
+                class="inline-input w-50">
+                <el-option v-for="item in countryOptions" :key="item.country" :label="item.country"
+                    :value="item.country" />
             </el-select>
 
-            <!-- 手动新增 -->
-            <div v-if="mode == 'manAdd'">
-
-                <div v-for="(form, index) in addRouteForms" :key="index"
-                    style="border-bottom: 1px solid #eee; padding: 10px 0">
-                    <el-form ref="formRef" :model="form" label-width="100px">
-                        <el-form-item label="航季">
-                            <SeasonSelect v-model="form.season" />
-                        </el-form-item>
-                        <el-form-item label="起飞机场">
-                            <AirportAutocomplete v-model="form.departure" @select="handleDepartureSelect" />
-                        </el-form-item>
-                        <el-form-item label="目的机场">
-                            <AirportAutocomplete v-model="form.arrival" @select="handleArrivalSelect" />
-                        </el-form-item>
-                        <el-form-item label="航段">
-                            <el-input v-model="form.sector" placeholder="航段" />
-                        </el-form-item>
-                        <el-form-item label="航路">
-                            <el-input v-model="form.ATSroute" placeholder="航路" />
-                        </el-form-item>
-                        <el-form-item label="航线代码">
-                            <el-input v-model="form.routeCode" placeholder="航线代码" />
-                        </el-form-item>
-                        <el-form-item label="飞越国家">
-                            <el-tabs v-model="clickCountry" @tab-click="changeCountry">
-                                <el-tab-pane v-for="(c, idx) in form.overflyCountry" :key="idx" :name="c.country">
-                                    <template #label>
-                                        <span>
-                                            {{ c.country }}
-                                        </span>
-                                    </template>
-                                    <div>
-                                        <overflyDataView :mode="'forever'" :editShow="true"
-                                            :overflyDataFromFather="c.overflyDetails" :allData="form.overflyCountry"
-                                            :curSeason="curSeason" :countryData="selectCountryData(c.country)"
-                                            @updateFinish="refreshOverflyData" />
-                                    </div>
-                                    <el-button type="danger" @click="form.overflyCountry.splice(idx, 1)">删除 {{ c.country
-                                        }}</el-button>
-                                </el-tab-pane>
-
-                            </el-tabs>
-
-                            <el-button type="primary" link @click="addCountry(form)">+ 添加国家</el-button>
-
-                        </el-form-item>
-                        <el-button @click="deleteRow(index)">删除</el-button>
-
-                        <!-- 飞越国家 -->
-                        <!-- <el-form-item label="飞越国家">
-                            <el-select v-model="form.overflyCountryNames" multiple filterable remote
-                                :reserve-keyword="false" placeholder="飞越国家" :remote-method="countrySearch"
-                                :loading="loadingCountries" @change="val => onCountryChange(val, index)"
-                                class="inline-input w-50">
-                                <el-option v-for="item in countryOptions" :key="item.country" :label="item.country"
-                                    :value="item.country" />
-                            </el-select>
-
-                            <el-table v-if="form.overflyCountry.length" :data="form.overflyCountry" style="width: 100%">
-                                <el-table-column prop="country" label="国家" />
-                                <el-table-column v-for="field in allFieldsList[index]" :key="field" :label="field">
-                                    <template #default="{ row }">
-                                        <el-input v-model="row.data[field]" size="small" />
-                                    </template>
+            <el-table v-if="form.overflyCountry.length" :data="form.overflyCountry" style="width: 100%">
+                <el-table-column prop="country" label="国家" />
+                <el-table-column v-for="field in allFieldsList[index]" :key="field" :label="field">
+                    <template #default="{ row }">
+                        <el-input v-model="row.data[field]" size="small" />
+                    </template>
 </el-table-column>
 </el-table>
 </el-form-item> -->
-                    </el-form>
+                        </el-form>
+                    </div>
+                    <div v-if="!isEditing" style="margin: 10px 0">
+                        <el-button type="primary" :icon="Plus" @click="addRow">
+                            <el-icon class="el-icon--right">
+                                <Plus />
+                            </el-icon>
+                            添加一条航路
+                        </el-button>
+                    </div>
                 </div>
-                <div v-if="!isEditing" style="margin: 10px 0">
-                    <el-button type="primary" :icon="Plus" @click="addRow">
-                        <el-icon class="el-icon--right">
-                            <Plus />
-                        </el-icon>
-                        添加一条航路
-                    </el-button>
-                </div>
-            </div>
 
-            <!-- Excel 导入 -->
-            <div v-if="mode == 'byExcel'">
-                <SeasonSelect v-model="curSeason" />
+                <!-- Excel 导入 -->
+                <div v-if="mode == 'byExcel'">
+                    <!-- <SeasonSelect v-model="curSeason" /> -->
+                    <el-button @click="submitAllRoute">只上传航路数据</el-button>
+                    <el-button @click="submitOverflyData">只上传飞越数据</el-button>
+
+                    <el-row>
+                        <!-- 左边：总表 -->
+                        <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
+                            <h3>航路总表</h3>
+                            <div style="display: flex;justify-content: center;margin: auto;gap: 12px;">
+                                <el-upload ref="uploadRefMain" :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelMain" :on-remove="handleRemoveMain" :limit="1" :on-exceed="handleExceedMain" :on-preview="handlePreviewMain">
+                                    <el-button type="primary">上传航路总表/CFP大表数据</el-button>
+
+                                </el-upload>
+                                <!-- <el-button type="warning" @click="deleteTemRouteData">清除航路数据</el-button> -->
+                            </div>
+
+                            <el-table :data="totalRoutes" border style="width: 100%">
+                                <el-table-column prop="sector" label="航段" />
+                                <el-table-column prop="routeCode" label="航线代码" />
+                                <el-table-column prop="departure" label="起飞机场" />
+
+                                <el-table-column prop="arrival" label="目的机场" />
+                                <el-table-column prop="ATSroute" label="航路" />
+
+                                <el-table-column label="飞越国家">
+
+                                    <template #default="{ row }">
+                                        <span>
+                                            <!-- overflyCountry 可能是数组 -->
+                                            {{Array.isArray(row.overflyCountry)
+                                                ? row.overflyCountry.map(c => c.country).join(',')
+                                                : ''}}
+                                        </span>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                        </el-col>
+
+                        <!-- 右边：飞越国境表 -->
+                        <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
+                            <h3>各国飞越数据</h3>
+                            <div style="display: flex;justify-content: center;margin: auto;gap: 12px;">
+                                <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelOverfly">
+                                    <el-button type="primary">上传各国飞越数据</el-button>
+                                </el-upload>
 
 
+                                <el-button type="warning" @click="deleteTemOverflyData">清除飞越数据</el-button>
 
+                            </div>
 
-                <el-button @click="submitAllRoute">提交所有航路数据</el-button>
-                <el-button @click="submitOverflyData">只提交飞越数据</el-button>
+                            <el-collapse>
+                                <el-collapse-item v-for="(rows, sheetName) in overflyData" :key="sheetName"
+                                    :title="sheetName">
+                                    <el-table :data="rows" border style="width: 100%">
+                                        <el-table-column v-for="(v, k) in rows[0] || {}" :key="k" :prop="k"
+                                            :label="k" />
+                                    </el-table>
+                                </el-collapse-item>
+                            </el-collapse>
+                        </el-col>
+                    </el-row>
 
-
-                <el-row>
-                    <!-- 左边：总表 -->
-                    <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
-                        <h3>航路总表</h3>
-                        <div style="display: flex;justify-content: center;margin: auto;gap: 12px;">
-                            <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelMain">
-                                <el-button type="primary">上传航路总表</el-button>
-
-                            </el-upload>
-                            <el-button type="warning" @click="deleteTemRouteData">清除航路数据</el-button>
-                        </div>
-
-                        <el-table :data="totalRoutes" border style="width: 100%">
+                    <!-- 下方：合并后的结果 -->
+                    <h3 style="margin-top:20px">交叉匹配结果</h3>
+                    <div style="max-height: 400px;overflow-y: scroll;">
+                        <el-table :data="mergedRoutes" border style="width: 100%">
                             <el-table-column prop="sector" label="航段" />
                             <el-table-column prop="routeCode" label="航线代码" />
-                            <el-table-column prop="departure" label="起飞机场" />
-
-                            <el-table-column prop="arrival" label="目的机场" />
-                            <el-table-column prop="ATSroute" label="航路" />
-
-                            <el-table-column label="飞越国家">
-
+                            <el-table-column label="飞越国家数据">
                                 <template #default="{ row }">
-                                    <span>
-                                        <!-- overflyCountry 可能是数组 -->
-                                        {{Array.isArray(row.overflyCountry)
-                                            ? row.overflyCountry.map(c => c.country).join(',')
-                                            : ''}}
-                                    </span>
+                                    <div v-for="detail in row.overflyCountry" :key="detail.country" class="mb-4">
+                                        <p class="font-bold">{{ detail.country }}:</p>
+
+                                        <el-table v-if="detail.overflyDetails && detail.overflyDetails.length"
+                                            :data="detail.overflyDetails" border style="width: 100%">
+                                            <!-- 动态表头 -->
+                                            <el-table-column v-for="col in getColumns(detail.overflyDetails)" :key="col"
+                                                :prop="col" :label="col" min-width="120" />
+                                        </el-table>
+                                    </div>
                                 </template>
                             </el-table-column>
                         </el-table>
-                    </el-col>
-
-                    <!-- 右边：飞越国境表 -->
-                    <el-col :span="12" style="max-height: 400px;overflow-y: scroll;">
-                        <h3>各国飞越数据</h3>
-                        <div style="display: flex;justify-content: center;margin: auto;gap: 12px;">
-                            <el-upload :auto-upload="false" accept=".xlsx, .xls" :on-change="handleExcelOverfly">
-                                <el-button type="primary">上传各国飞越数据</el-button>
-                            </el-upload>
+                    </div>
 
 
-                            <el-button type="warning" @click="deleteTemOverflyData">清除飞越数据</el-button>
 
-                        </div>
-
-                        <el-collapse>
-                            <el-collapse-item v-for="(rows, sheetName) in overflyData" :key="sheetName"
-                                :title="sheetName">
-                                <el-table :data="rows" border style="width: 100%">
-                                    <el-table-column v-for="(v, k) in rows[0] || {}" :key="k" :prop="k" :label="k" />
-                                </el-table>
-                            </el-collapse-item>
-                        </el-collapse>
-                    </el-col>
-                </el-row>
-
-                <!-- 下方：合并后的结果 -->
-                <h3 style="margin-top:20px">交叉匹配结果</h3>
-                <div style="max-height: 400px;overflow-y: scroll;">
-                    <el-table :data="mergedRoutes" border style="width: 100%">
-                        <el-table-column prop="sector" label="航段" />
-                        <el-table-column prop="routeCode" label="航线代码" />
-                        <el-table-column label="飞越国家数据">
-                            <template #default="{ row }">
-                                <div v-for="detail in row.overflyCountry" :key="detail.country" class="mb-4">
-                                    <p class="font-bold">{{ detail.country }}:</p>
-
-                                    <el-table v-if="detail.overflyDetails && detail.overflyDetails.length"
-                                        :data="detail.overflyDetails" border style="width: 100%">
-                                        <!-- 动态表头 -->
-                                        <el-table-column v-for="col in getColumns(detail.overflyDetails)" :key="col"
-                                            :prop="col" :label="col" min-width="120" />
-                                    </el-table>
-                                </div>
-                            </template>
-                        </el-table-column>
-                    </el-table>
                 </div>
 
-
-
+                <!-- 自动识别 -->
+                <div v-if="mode == 'autoRead'" style="text-align:center; padding:20px;">
+                    <p>自动识别功能开发中...</p>
+                </div>
             </div>
 
-            <!-- 自动识别 -->
-            <div v-if="mode == 'autoRead'" style="text-align:center; padding:20px;">
-                <p>自动识别功能开发中...</p>
-            </div>
+
+
 
             <!-- 底部操作 -->
-            <div style="text-align: right; margin-top:20px;">
-                <el-button @click="showAddRoute = false">取消</el-button>
-                <el-button type="primary" @click="onSubmit">
-                    {{ isEditing ? '更新数据' : '提交数据' }}
+            <div v-if="step === 2" class="panel">
+                <div style="text-align: right; margin-top:20px;">
+                    <el-button @click="showAddRoute = false">取消</el-button>
+                    <el-button type="primary" @click="onSubmit">
+                        {{ isEditing ? '更新数据' : '提交数据' }}
+                    </el-button>
+                </div>
+            </div>
+            <div class="flow-footer">
+
+                <el-button @click="step--" :disabled="step === 0">
+                    上一步
                 </el-button>
+
+
+                <el-button v-if="step < 4" type="primary" @click="step++">
+                    下一步
+                </el-button>
+
+
+                <el-button v-if="step === 4" type="success" @click="onSubmit">
+                    提交
+                </el-button>
+
             </div>
             <!-- <div v-if="props.uploading" class="progressMask">
 
@@ -262,6 +307,8 @@
                 <el-button @click="conflictDialogVisible = false">取消</el-button>
                 <el-button type="primary" @click="confirmConflict">确定提交</el-button>
             </template>
+
+
         </el-dialog>
     </div>
 </template>
@@ -276,7 +323,7 @@ import { parseOverflyData, mergeRouteWithOverflyData } from './fileParser.js'; /
 import SeasonSelect from '../utils/seasonSelect.vue'
 import overflyDataView from '../utils/overflyDataView.vue'
 import { useSeasonData } from '../components/useSeasonUtils'
-
+const step = ref(0)
 const { todaySeason } = useSeasonData()
 const clickCountry = ref()
 const curCountry = ref()
@@ -544,7 +591,7 @@ function parseRowToRoute(row, curSeason) {
     // if (values.length === 0) {
     //     return null
     // }
-    console.log('解析的excel原数据', values)
+    // console.log('解析的excel原数据', values)
     //识别每个字段的数据
     values.forEach(val => {
         if (regexRules.sector.test(val)) {
@@ -582,7 +629,11 @@ const handleExcelMain = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
         const data = new Uint8Array(e.target.result);
+        console.log('data', data)
+
         const workbook = XLSX.read(data, { type: "array" });
+        console.log('workbook', workbook)
+
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, {
             header: 1,     // 👉 不自动识别表头
@@ -590,8 +641,10 @@ const handleExcelMain = (file) => {
         });
         const curSeasonChoose = curSeason.value;
         console.log('sheet', sheet)
+        console.log('rows', rows)
+
         totalRoutes.value = rows.map(r => parseRowToRoute(r, curSeasonChoose));
-        console.log("文件的所有航路", totalRoutes.value);
+        // console.log("文件的所有航路", totalRoutes.value);
 
 
         // 如果飞越表已加载，尝试合并
@@ -607,6 +660,26 @@ const handleExcelMain = (file) => {
     };
     reader.readAsArrayBuffer(file.raw);
 };
+const uploadRefMain = ref()
+
+const handleExceedMain = (files) => {
+
+    if (!files.length) return
+
+    const file = files[0]
+
+    // 清空旧文件
+    uploadRefMain.value.clearFiles()
+
+    // 手动触发读取
+    handleExcelMain({
+        raw: file
+    })
+    uploadRefMain.value.handleStart(file)
+}
+const handleRemoveMain = (file)=>{
+    totalRoutes.value = []
+}
 function parseEntryExitFromATS(ATSroute) {
     if (!ATSroute) return {};
 
@@ -1021,6 +1094,7 @@ const onSubmit = async () => {
             }
         });
     }
+    submitOverflyData()
 
     console.log('传给父组件submitData', submitData)
     emit('submit', submitData)

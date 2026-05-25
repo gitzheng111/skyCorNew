@@ -41,7 +41,7 @@ const navToInfoCenter = () => {
 }
 
 const handleSelect = (key) => {
-  isMessageActive.value =false
+  isMessageActive.value = false
   switch (key) {
     case '1':
       router.push('/');
@@ -58,10 +58,10 @@ const handleSelect = (key) => {
     case '3-1':
       router.push('/routeManage');
       break;
+    // case '3-2':
+    //   router.push('/countryList');
+    //   break;
     case '3-2':
-      router.push('/countryList');
-      break;
-    case '3-3':
       router.push('/overflyData');
       break;
     case '4-1':
@@ -69,6 +69,9 @@ const handleSelect = (key) => {
       break;
     case '4-2':
       router.push('/aircraftManage');
+      break;
+    case '4-3':
+      router.push('/countryList');
       break;
   }
   console.log('router', router)
@@ -85,12 +88,13 @@ watch(
     if (newPath === '/aircraftManage') {
       activeIndex.value = '4-2';
     }
-    if (newPath === '/overflyData') {
-      activeIndex.value = '3-3';
-    }
     if (newPath === '/countryList') {
+      activeIndex.value = '4-3';
+    }
+    if (newPath === '/overflyData') {
       activeIndex.value = '3-2';
     }
+    
     if (newPath === '/routeManage') {
       activeIndex.value = '3-1';
     }
@@ -119,10 +123,10 @@ onMounted(async () => {
 
 })
 watch(() => infoData.value, (val) => {
-    infoData.value = val
-    console.log('infoData', infoData.value)
+  infoData.value = val
+  console.log('infoData', infoData.value)
 },
-    { immediate: true })
+  { immediate: true })
 </script>
 
 <template>
@@ -138,14 +142,15 @@ watch(() => infoData.value, (val) => {
     <el-sub-menu index="3">
       <template #title>航路管理</template>
       <el-menu-item index="3-1">航路信息</el-menu-item>
-      <el-menu-item index="3-2">飞越国家管理</el-menu-item>
-      <el-menu-item index="3-3">飞越数据管理</el-menu-item>
+   
+      <el-menu-item index="3-2">飞越数据管理</el-menu-item>
 
     </el-sub-menu>
     <el-sub-menu index="4">
       <template #title>基础数据</template>
       <el-menu-item index="4-1">机场数据</el-menu-item>
       <el-menu-item index="4-2">机型数据</el-menu-item>
+         <el-menu-item index="4-3">飞越国家管理</el-menu-item>
 
     </el-sub-menu>
     <div class="button-row">

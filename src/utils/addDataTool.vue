@@ -237,9 +237,9 @@
                 </el-table-column> -->
                 <el-table-column label="其他名">
                     <template #default="{ row }">
-                        <el-input v-model="row.anotherName.caacName" placeholder="caac缩写" />
-                        <el-input v-model="row.anotherName.shortName" placeholder="短缩写" />
-                        <el-input v-model="row.anotherName.icaoName" placeholder="icao缩写" />
+                        caacName:<el-input v-model="row.anotherName.caacName" placeholder="caac缩写" />
+                        shortName:<el-input v-model="row.anotherName.shortName" placeholder="短缩写" />
+                        icaoName:<el-input v-model="row.anotherName.icaoName" placeholder="icao缩写" />
 
                     </template>
                 </el-table-column>
@@ -265,7 +265,7 @@
         <div style="text-align: right">
             <el-radio-group v-model="radio" :options="options" />
 
-            <el-button type="primary" @click="syncDataToFather(mode)">创建</el-button>
+            <el-button type="primary" @click="syncDataToFather(mode)">{{isEditing ? '更新' : '创建'}}</el-button>
         </div>
     </el-dialog>
 

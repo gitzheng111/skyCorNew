@@ -2,33 +2,66 @@
 <template>
 
 
-    <el-dialog title="申请文件生成中" width="98%" v-model="visible" :close-on-click-modal="false" :before-close="handleClose">
+    <el-dialog title="申请文件生成中" width="100%" v-model="visible" :close-on-click-modal="false" :before-close="handleClose" >
         <!-- 内容区域 -->
         <div v-if="loading" class="loading-container">
             <el-progress :percentage="progressPercent" />
             <p>模板加载中，请稍候...</p>
         </div>
+        <div v-else style="   display: flex; flex-direction: column;   gap: 20px;height: 700px;">
 
-        <div v-else class="result-layout" style="display: flex; gap: 20px; min-height: 500px;">
-            <!-- 左侧预览 -->
-            <div style="flex: 1; border: 1px solid #ccc; overflow: hidden;width: 80%;">
+            <!-- 预览区域 -->
+            <div style=" flex: 1;  border: 1px solid #ccc;  overflow: auto; background: #fff; ">
+
+                <!-- docx -->
                 <filePreview v-if="fileGenerated && previewGenerate?.type === 'docx'" :file="previewGenerate"
+                    v-model:visible="previewVisible" :inline="true" />
+
+                <!-- xlsx -->
+                <VueOfficeExcel v-else-if="fileGenerated && previewGenerate?.type === 'xlsx'" :src="previewGenerate.URL"
+                    style="width: 100%; min-height: 100%;" />
+
+            </div>
+
+
+            <!-- 底部结果 -->
+            <div style="text-align:center">
+
+                <el-result icon="success" title="生成成功">
+
+                    <template #extra>
+
+                        <p>申请文件已生成，点击下方按钮下载。</p>
+
+                        <el-button type="primary" @click="downloadDoc" :loading="downloading">
+                            下载并上传申请文件
+                        </el-button>
+
+                    </template>
+
+                </el-result>
+
+            </div>
+
+        </div>
+        <!-- <div v-else class="result-layout" style="gap: 20px; min-height: 500px;">
+            <div style="border: 1px solid #ccc; overflow: hidden;width: 100%;">
+                <filePreview  v-if="fileGenerated && previewGenerate?.type === 'docx'" :file="previewGenerate"
                     v-model:visible="previewVisible" :inline="true" />
 
                 <VueOfficeExcel v-else-if="fileGenerated && previewGenerate?.type === 'xlsx'"
                     :src="previewGenerate.URL" />
             </div>
 
-            <!-- 右侧成功提示 -->
-            <div style="flex: 1;width: 20%;">
+            <div>
                 <el-result icon="success" title="生成成功">
                     <template #extra>
                         <p>申请文件已生成，点击下方按钮下载。</p>
-                        <el-button type="primary" @click="downloadDoc" :loading="downloading">保存并下载申请文件</el-button>
+                        <el-button type="primary" @click="downloadDoc" :loading="downloading">下载并上传申请文件</el-button>
                     </template>
                 </el-result>
             </div>
-        </div>
+        </div> -->
     </el-dialog>
 </template>
 
@@ -56,6 +89,7 @@ const props = defineProps({
     curCountryData: Object,
     attribution: String,
     curTaskData: Object,
+    templatePath: Object,
 })
 const emit = defineEmits(['update:show'])
 function isFullUrl(url) {
@@ -267,9 +301,10 @@ const generateDocNew = async () => {
     }
 
     try {
-        const templatePath = baseFileURL + props.curCountryInfo.scheduleTemplate.url;
-        const ext = templateUrl.split('.').pop().toLowerCase();
-        console.log('ext', ext)
+        console.log('传入的文档链接', props.templatePath)
+        const templatePath = baseFileURL + props.templatePath.url;
+        const ext = props.templatePath.url.split('.').pop().toLowerCase();
+        console.log('templatePath', templatePath)
 
         const transformedFlightList = (curCountryApplyData.value.flightList || []).map(flight => {
             // console.log('111',formatDateToCountry(flight.startDate,props.curCountryData.overflyCountry,'blank'))
@@ -356,30 +391,39 @@ const generateDocNew = async () => {
             mergedFlights,
             templatePath
         };
-        console.log('用来模板的data', data)
+        console.log('ext', ext, '用来模板的data', data)
         if (ext == 'xlsx') {
-            const excelResponse = await generateExcel(data)
-            console.log('excelResponse', excelResponse)
-            const excelBlob = new Blob(
-                [excelResponse.data],
-                {
-                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                }
+            const blob = await handleXlsxTemplate(
+                templatePath,
+                data
             )
+            console.log('bolb', blob)
+            const url = URL.createObjectURL(blob)
+
+            // handleXlsxTemplate(templatePath, data)
+            // handleXlsxTemplateTest()
+            // const excelResponse = await generateExcel(data)
+            // console.log('excelResponse', excelResponse)
+            // const excelBlob = new Blob(
+            //     [excelResponse.data],
+            //     {
+            //         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            //     }
+            // )
 
 
             previewGenerate.value = {
                 name: '预览申请文件',
                 type: 'xlsx',
-                URL: URL.createObjectURL(excelBlob),
+                URL: url,
                 source: 'local',
-                blob: excelBlob,
+                blob: blob,
             }
             loading.value = false;
             console.log('previewGenerate', previewGenerate.value)
-            console.log('excelResponse.data type:', typeof excelResponse.data)
-            console.log('is ArrayBuffer:', excelResponse.data instanceof ArrayBuffer)
-            console.log('is Uint8Array:', excelResponse.data instanceof Uint8Array)
+            // console.log('excelResponse.data type:', typeof excelResponse.data)
+            // console.log('is ArrayBuffer:', excelResponse.data instanceof ArrayBuffer)
+            // console.log('is Uint8Array:', excelResponse.data instanceof Uint8Array)
 
         } else if (ext == 'docx') {
             // 1. 获取模板文件
@@ -427,6 +471,218 @@ const generateDocNew = async () => {
         loading.value = false;
     }
 };
+import { renderXlsxTemplate, placeholderRange } from "exceljs-xlsx-template";
+
+function handleXlsxTemplateTest() {
+    console.log('测试')
+    const xlsxFile =
+        "https://raw.githubusercontent.com/cshaptx4869/exceljs-xlsx-template/refs/heads/main/test/assets/template.xlsx";
+    const officialsealFile =
+        "https://raw.githubusercontent.com/cshaptx4869/exceljs-xlsx-template/refs/heads/main/test/assets/officialseal.png";
+    const imageUrl = "https://s2.loli.net/2025/03/07/ELZY594enrJwF7G.png";
+    const data = [
+        {
+            name: "John",
+            items: [
+                { no: "No.1", name: "JavaScript" },
+                { no: "No.2", name: "CSS" },
+                { no: "No.3", name: "HTML" },
+                { no: "No.4", name: "Node.js" },
+                { no: "No.5", name: "Three.js" },
+                { no: "No.6", name: "Vue" },
+                { no: "No.7", name: "React" },
+                { no: "No.8", name: "Angular" },
+                { no: "No.9", name: "UniApp" },
+            ],
+
+            projects: [
+                { name: "Project 1", description: "Description 1", image: imageUrl },
+                { name: "Project 2", description: "Description 2", image: imageUrl },
+                { name: "Project 3", description: "Description 3", image: imageUrl },
+            ],
+        },
+        {
+            invoice_number: "54548",
+            last_name: "John",
+            first_name: "Doe",
+            phone: "00874****",
+            invoice_date: "15/05/2008",
+            items: [
+                { name: "description", unit_price: 300 },
+                { name: "HTML", unit_price: 400 },
+            ],
+            subtotal: 700,
+            tax: 140,
+            grand_total: 840,
+        },
+    ];
+
+    try {
+        renderXlsxTemplate(xlsxFile, data, `${Date.now()}.xlsx`, {
+            parseImage: true,
+            async beforeSave(workbook) {
+                // 获取工作表
+                const worksheet = workbook.getWorksheet("新报关单");
+                if (worksheet) {
+                    // 加载图片印章
+                    const officialsealRresponse = await fetch(officialsealFile);
+                    if (!officialsealRresponse.ok) {
+                        console.error(`Failed to download image file, status code: ${officialsealRresponse.status}`);
+                        return;
+                    }
+                    const officialsealArrayBuffer = await officialsealRresponse.arrayBuffer();
+                    // 将图片添加到工作簿
+                    const imageId = workbook.addImage({
+                        buffer: officialsealArrayBuffer,
+                        extension: "png",
+                    });
+                    // 获取印章占位符位置信息
+                    const range = placeholderRange(worksheet, "{{#officialseal}}");
+                    if (range) {
+                        // 插入图片到表格中
+                        worksheet.addImage(imageId, {
+                            tl: { col: range.start.col, row: range.start.row - 4 },
+                            ext: { width: 200, height: 200 },
+                        });
+                    }
+                }
+            },
+        });
+    } catch (error) {
+        console.error("Error processing Excel file:", error);
+    }
+}
+async function handleXlsxTemplate(template, data) {
+
+    // const officialsealFile =
+    //     "https://raw.githubusercontent.com/cshaptx4869/exceljs-xlsx-template/refs/heads/main/test/assets/officialseal.png";
+        const officialsealFile = baseFileURL+"uploads/stamp/厦航印章.PNG"
+    const res = await fetch(template)
+    const buffer = await res.arrayBuffer()
+
+    let outputBuffer = null
+
+    await renderXlsxTemplate(
+        buffer,
+        [data],
+        null,
+        {
+            parseImage: true,
+
+            async beforeSave(workbook) {
+
+                const worksheet =
+                    workbook.getWorksheet("Sheet1");
+
+                if (worksheet) {
+
+                    const imgRes =
+                        await fetch(officialsealFile)
+
+                    const imgBuffer =
+                        await imgRes.arrayBuffer()
+
+                    const imageId =
+                        workbook.addImage({
+                            buffer: imgBuffer,
+                            extension: "png",
+                        })
+
+                    const range =
+                        placeholderRange(
+                            worksheet,
+                            "{{#officialseal}}"
+                        )
+
+                    if (range) {
+
+                        worksheet.addImage(
+                            imageId,
+                            {
+                                tl: {
+                                    col: range.start.col,
+                                    row: range.start.row - 4,
+                                },
+                                ext: {
+                                    width: 200,
+                                    height: 200,
+                                },
+                            }
+                        )
+                    }
+                }
+
+                // ⭐关键：自己生成buffer
+                outputBuffer =
+                    await workbook.xlsx.writeBuffer()
+            },
+        }
+    )
+
+    // ⭐这里才有值
+    return new Blob(
+        [outputBuffer],
+        {
+            type:
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+    )
+}
+
+// async function handleXlsxTemplate(template, data) {
+//     console.log('template', template, 'data', data)
+//     const xlsxFile = template
+//     // "https://raw.githubusercontent.com/cshaptx4869/exceljs-xlsx-template/refs/heads/main/test/assets/template.xlsx";
+//     const officialsealFile =
+//         "https://raw.githubusercontent.com/cshaptx4869/exceljs-xlsx-template/refs/heads/main/test/assets/officialseal.png";
+//     const imageUrl = "https://s2.loli.net/2025/03/07/ELZY594enrJwF7G.png";
+
+//     try {
+//         const res = await fetch(template)
+//         const buffer = await res.arrayBuffer()
+//         const result = await renderXlsxTemplate(buffer, [data], null, {
+//             parseImage: true,
+//             async beforeSave(workbook) {
+//                 // 获取工作表
+//                 const worksheet = workbook.getWorksheet("Sheet1");
+//                 if (worksheet) {
+//                     // 加载图片印章
+//                     const officialsealRresponse = await fetch(officialsealFile);
+//                     console.log('officialsealRresponse', officialsealRresponse)
+//                     if (!officialsealRresponse.ok) {
+//                         console.error(`Failed to download image file, status code: ${officialsealRresponse.status}`);
+//                         return;
+//                     }
+//                     const officialsealArrayBuffer = await officialsealRresponse.arrayBuffer();
+//                     // 将图片添加到工作簿
+//                     const imageId = workbook.addImage({
+//                         buffer: officialsealArrayBuffer,
+//                         extension: "png",
+//                     });
+//                     // 获取印章占位符位置信息
+//                     const range = placeholderRange(worksheet, "{{#officialseal}}");
+//                     if (range) {
+//                         // 插入图片到表格中
+//                         worksheet.addImage(imageId, {
+//                             tl: { col: range.start.col, row: range.start.row - 4 },
+//                             ext: { width: 200, height: 200 },
+//                         });
+//                     }
+//                 }
+//             },
+//         });
+
+//         return new Blob(
+//             [result],
+//             {
+//                 type:
+//                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+//             }
+//         )
+//     } catch (error) {
+//         console.error("Error processing Excel file:", error);
+//     }
+// }
 const docContentHtml = ref()
 const templateUrl = baseFileURL + props.curCountryInfo.scheduleTemplate.url;
 const readDocxContent = async () => {
@@ -603,7 +859,7 @@ const downloadDoc = async () => {
 
     // 2️⃣ 直接上传 blob（关键）
     const formData = new FormData()
-   
+
 
     formData.append('taskKey', props.curTaskData.taskKey)
     formData.append('id', props.curTaskData.id)

@@ -14,8 +14,18 @@
         </el-button>
         <el-button :icon="Plus" type="success" @click="transferToTaskdata(multipleSelection)"
             :disabled="multipleSelection.length === 0">申请选择的航班</el-button>
+        <el-button type="warning" @click="changeFlight(multipleSelection)">
+            变更
+        </el-button>
 
     </div>
+    <!-- <div>
+
+        <el-tabs @tab-click="changeAttribution">
+            <el-tab-pane label="定期" name="Scheduled"></el-tab-pane>
+            <el-tab-pane label="非定期" name="nonSchedule"></el-tab-pane>
+        </el-tabs>
+    </div> -->
     <div style="display: flex; height: 100vh;">
         <div style="flex: 3; padding: 10px; border-right: 1px solid #ccc; overflow: auto;">
             <!-- <template #first> -->
@@ -23,6 +33,9 @@
             <div>
 
                 <el-tag type="success" size="large">{{ filteredFlights.length }}个航班</el-tag>
+                <el-tag type="success" size="large">{{ scheduleList.length }}个定期航班</el-tag>
+                <el-tag type="success" size="large">{{ nonScheduleList.length }}非个定期航班</el-tag>
+
                 <!-- <el-tag>{{ applyRequired.length }}个航班需申请</el-tag> -->
             </div>
             <el-table :data="filteredFlights" @selection-change="handleSelectionChange" @row-click="showClickRowDetail">
@@ -86,7 +99,7 @@
                                 </el-tag>
                                 <el-tag
                                     :type="row.allValid === 'all' ? 'success' : (row.allValid > 0 ? 'warning' : 'danger')">
-                                    {{ row.allValid === 'all' ? '全部可用' : `可用${row.allValid}` }}
+                                    {{ row.allValid === 'all' ? '全部可用' : `可用${row.allValid ? row.allValid : '/'}` }}
                                 </el-tag>
                             </div>
 
@@ -153,9 +166,10 @@
                         <el-button type="primary" size="small" @click.stop="editFlight(row)">
                             编辑
                         </el-button>
-                        <el-button type="warning" size="small" @click.stop="changeFlight(row)">
+                        <!-- <el-button type="warning" size="small" @click.stop="changeFlight(row)">
                             改
-                        </el-button>
+                        </el-button> -->
+
                     </template>
                 </el-table-column>
             </el-table>
@@ -173,9 +187,9 @@
                         <el-descriptions-item label="起飞机场">{{ clickFlight.departure }}</el-descriptions-item>
                         <el-descriptions-item label="到达机场">{{ clickFlight.arrival }}</el-descriptions-item>
                         <el-descriptions-item label="起飞时间">{{ formatTimeFree(clickFlight.departureTime)
-                        }}</el-descriptions-item>
+                            }}</el-descriptions-item>
                         <el-descriptions-item label="到达时间">{{ formatTimeFree(clickFlight.arrivalTime)
-                        }}</el-descriptions-item>
+                            }}</el-descriptions-item>
                     </el-descriptions>
 
                     <el-divider>航路详情</el-divider>
@@ -208,7 +222,7 @@
                                 <div v-if="curClickCountryDetails">
                                     <h4>飞越航路详情</h4>
 
-                                    <overflyDataView :editShow="false"
+                                    <overflyDataView :editShow="false" :countryData="curClickCountryData"
                                         :overflyDataFromFather="curClickCountryDetails.overflyDetails" />
                                 </div>
                             </el-collapse-item>
@@ -221,11 +235,11 @@
                     <el-descriptions v-if="clickFlight.fuel_detail" :column="2" border>
                         <el-descriptions-item label="合同名称">{{ clickFlight.fuel_detail.name }}</el-descriptions-item>
                         <el-descriptions-item label="开始日期">{{ clickFlight.fuel_detail.startDate
-                        }}</el-descriptions-item>
+                            }}</el-descriptions-item>
                         <el-descriptions-item label="结束日期">{{ clickFlight.fuel_detail.endDate
-                        }}</el-descriptions-item>
+                            }}</el-descriptions-item>
                         <el-descriptions-item label="关联机场">{{ clickFlight.fuel_detail.relateAirport
-                        }}</el-descriptions-item>
+                            }}</el-descriptions-item>
                     </el-descriptions>
                     <el-empty v-else description="未查到相关合同" />
                 </template>
@@ -400,19 +414,22 @@
                 </el-col>
             </el-row>
 
-
+            <!-- 创建任务后的弹窗 -->
             <el-dialog v-model="showCreateTask" title="任务详情" width="70%">
                 <el-scrollbar height="500px">
                     <div v-if="taskList.length > 0">
                         <h4 class="text-lg font-bold">任务名字</h4>
                         <el-input v-model="curTaskNameInput" placeholder="请输入任务名字"></el-input>
+                        <!-- <el-input v-model="curTaskAttrInput" ></el-input> -->
+                        <el-tag>{{ curTaskAttrInput == 'SCHEDULED' ? '定期' : '非定期' }}申请任务</el-tag>
+                        <el-tag>{{ curTaskSeason }}</el-tag>
+
                         <el-card v-for="item in taskList" :key="item.overflyCountry" class="mb-4" shadow="hover"
                             body-style="{ padding: '20px' }">
 
-                            <div class="flex items-center justify-between mb-2">
-                                <!-- <h4 class="text-lg font-bold"></h4> -->
+                            <!-- <div class="flex items-center justify-between mb-2">
                                 <el-tag>航季：{{ item.season }}</el-tag>
-                            </div>
+                            </div> -->
                             <div class="flex items-center justify-between mb-2">
                                 <h4 class="text-lg font-bold">国家/地区：{{ item.overflyCountry }}</h4>
                                 <el-tag type="info">{{ item.flightList.length }} 个航班</el-tag>
@@ -458,7 +475,7 @@ import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeU
 import { beijingToUTC, utcToBeijing, formatTimeWithoutColon, formatTimeWithColon, beijingToLocal } from '../utils/timeTransfer';
 import { permissionCheck } from '../utils/permissionCheckTool';
 import axios, { all } from 'axios';
-import { addInfoCenter, flightsData, addFlights, getFlights, deleteFlights, addFlightsBatchs, aircraftData, airportCodeList, attributeData, addTask, getTaskList, deleteFlightsByIds, updateRoutes, updateFlightsBatchs } from '../api';
+import { addInfoCenter, flightsData, getCountryRules, addFlights, getFlights, deleteFlights, addFlightsBatchs, aircraftData, airportCodeList, attributeData, addTask, getTaskList, deleteFlightsByIds, updateRoutes, updateFlightsBatchs } from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { seasonCalculate, currentSeasonData } from '../utils/season.js'
 import daysPicker from '../utils/daysPicker.vue'
@@ -500,6 +517,8 @@ const showCreateTask = ref(false)
 const taskDialogVisible = ref(false)
 const taskInDialog = ref([])
 const filteredFlights = ref([])
+// const scheduleList = ref([])
+// const nonScheduleList = ref([])
 const addFlightVisible = ref(false)
 const multipleSelection = ref([]);
 const props = defineProps({
@@ -596,6 +615,7 @@ const emptyFlight = () => ({
     // aircraftNumber: '',
     startDate: '',
     endDate: '',
+    label:'',
     days: [],
 })
 
@@ -1013,12 +1033,30 @@ const loadInitialDataNew = (parentData) => {
 
         applyRequired.value = result;
         filteredFlights.value = parentFlights.value
-        console.log('applyRequired（未申请的航班+route）:', applyRequired.value);
+        // console.log('筛选后航班列表数据',filteredFlights.value)
+        if (curSeason.value) {
+            filteredFlights.value = parentFlights.value.filter(f => f.season == curSeason.value.en)
+
+        }
+        console.log('筛选后航班列表数据', filteredFlights.value)
+
+        // console.log('applyRequired（未申请的航班+route）:', applyRequired.value);
 
     } catch (e) {
         console.error('数据初始化失败:', e)
     }
 }
+const scheduleList = computed(() => {
+    return filteredFlights.value.filter(
+        flight => flight.attribution.toUpperCase() === 'SCHEDULED'
+    );
+});
+const nonScheduleList = computed(() => {
+    return filteredFlights.value.filter(
+        flight => flight.attribution.toUpperCase() === 'NONSCHEDULE'
+    );
+});
+
 const loadInitialRouteData = (parentData) => {
     // parent从watch传newval过来
     try {
@@ -1074,9 +1112,16 @@ const checkClickCountry = () => {
     lastCountrtSelect.value = curCountryUnderRoute.value
 }
 const curClickCountryDetails = ref(null)
-const showOverflyDetail = (route, country) => {
+const curClickCountryData = ref()
+const countryDataFromServer = ref()
+const showOverflyDetail = async (route, country) => {
+    const countryRes = await getCountryRules()
+    countryDataFromServer.value = countryRes.data
+    console.log('route', route, 'country', country, 'countryRes', countryRes)
+
     curClickCountryDetails.value = route.overflyCountry.find(item => item.country == country)
-    console.log('curClickCountryDetails', curClickCountryDetails)
+    curClickCountryData.value = countryDataFromServer.value.find(item => item.country == country)
+    console.log('curClickCountryData', curClickCountryData)
 }
 const routeInFilter = (filterData) => {
     console.log('filterData', filterData)
@@ -1099,67 +1144,87 @@ const showApplyRequired = () => {
     hideRight.value = !hideRight.value;
 };
 const handleSelectAll = (checked) => {
+
     if (checked) {
-        selectedFlights.value = taskNeedData.value.map(f => `${f.flightNumber}-${f.departure}-${f.arrival}`);
+
+        selectedFlights.value =
+            taskNeedData.value.map(f => getFlightKey(f))
 
         for (const flight of taskNeedData.value) {
-            const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
-            selectedRoutes.value[key] = flight.route
-                .filter(r => !r.isValid)
-                .map(r => r.routeCode);
+
+            const key = getFlightKey(flight)
+
+            selectedRoutes.value[key] =
+                flight.route
+                    .filter(r => !r.isValid)
+                    .map(r => r.routeCode)
         }
-        console.log('selectedRoutes', selectedRoutes)
+
     } else {
-        selectedFlights.value = [];
+
+        selectedFlights.value = []
+
         for (const flight of taskNeedData.value) {
-            const key = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
-            selectedRoutes.value[key] = [];
+
+            const key = getFlightKey(flight)
+
+            selectedRoutes.value[key] = []
         }
     }
-};
-// const handleSelectAll = (checked) => {
-//     // const flightKey = `${flight.flightNumber}-${flight.departure}-${flight.arrival}`;
 
-//     if (checked) {
-
-//         selectedFlights.value = taskNeedData.value.map(f => `${f.flightNumber}-${f.departure}-${f.arrival}`);
-//         console.log('selectedFlights1',selectedFlights.value)
-
-//         for (const flight of taskNeedData.value) {
-//             selectedRoutes.value[`${f.flightNumber}-${f.departure}-${f.arrival}`] = flight.route
-//                 .filter(r => !r.isValid)
-//                 .map(r => r.routeCode);
-//         }
-//         console.log('selectedFlights',selectedFlights.value)
-
-//     } else {
-//         selectedFlights.value = [];
-//         for (const flight of  taskNeedData.value) {
-//             selectedRoutes.value[flightKey] = [];
-//         }
-//     }
-// };
+    console.log('selectedFlights', selectedFlights.value)
+    console.log('selectedRoutes', selectedRoutes.value)
+}
+const getFlightKey = (flight) =>
+    `${flight.flightNumber}-${flight.departure}-${flight.arrival}`
+    //单选确认
 const handleFlightSelect = ({ flight, checked }) => {
+
+    const key = getFlightKey(flight)
+
     if (checked) {
-        if (!selectedFlights.value.includes(flight.flightNumber)) selectedFlights.value.push(flight.flightNumber)
-        selectedRoutes.value[flight.flightNumber] = flight.route.filter(r => !r.isValid).map(r => r.routeCode)
+
+        if (!selectedFlights.value.includes(key)) {
+            selectedFlights.value.push(key)
+        }
+
+        selectedRoutes.value[key] =
+            flight.route
+                .filter(r => !r.isValid)
+                .map(r => r.routeCode)
+
     } else {
-        selectedFlights.value = selectedFlights.value.filter(f => f !== flight.flightNumber)
-        selectedRoutes.value[flight.flightNumber] = []
+
+        selectedFlights.value =
+            selectedFlights.value.filter(f => f !== key)
+
+        selectedRoutes.value[key] = []
     }
-    console.log('selectedRoutes', selectedRoutes)
 
     updateSelectAllStatus()
 }
 
 const handleRouteSelect = ({ flight, routes }) => {
-    selectedRoutes.value[flight.flightNumber] = routes
-    const totalInvalid = flight.route.filter(r => !r.isValid).length
+
+    const key = getFlightKey(flight)
+
+    selectedRoutes.value[key] = routes
+
+    const totalInvalid =
+        flight.route.filter(r => !r.isValid).length
+
     if (routes.length === totalInvalid) {
-        if (!selectedFlights.value.includes(flight.flightNumber)) selectedFlights.value.push(flight.flightNumber)
+
+        if (!selectedFlights.value.includes(key)) {
+            selectedFlights.value.push(key)
+        }
+
     } else {
-        selectedFlights.value = selectedFlights.value.filter(f => f !== flight.flightNumber)
+
+        selectedFlights.value =
+            selectedFlights.value.filter(f => f !== key)
     }
+
     updateSelectAllStatus()
 }
 const updateSelectAllStatus = () => {
@@ -1171,12 +1236,18 @@ const updateFlightRoutes = (flight, routes) => {
 }
 
 const formatAircraftType = (val) => {
-  if (Array.isArray(val)) {
-    return val.join(', ')
-  }
-  return val || ''
+    if (Array.isArray(val)) {
+        return val.join(', ')
+    }
+    return val || ''
 }
+const sameAttribution = (flights) => {
+    if (!Array.isArray(flights) || flights.length === 0) return true;
 
+    const firstAttr = flights[0].attribution;
+
+    return flights.every(flight => flight.attribution === firstAttr);
+};
 
 const taskNeedData = ref([])
 //输出选择列表
@@ -1184,6 +1255,13 @@ const transferToTaskdata = (data) => {
     try {
         parentFlights.value = data || [];
         console.log('parentFlights', parentFlights.value)
+        if (!sameAttribution(parentFlights.value)) {
+            ElMessageBox.warning(
+                '所选航班包含不同属性（定期 / 非定期），请只选择同一属性的航班进行申请。',
+                '属性不一致'
+            );
+            return; //  终止执行
+        }
         const result = [];
         parentFlights.value.forEach(flight => {
             if (!Array.isArray(flight.matchingRoutes)) return;
@@ -1212,7 +1290,7 @@ const transferToTaskdata = (data) => {
                     aircraftType: flight.aircraftType,
                     aircraftNumber: flight.aircraftNumber,
                     season: flight.season,
-                    route: unappliedRoutes, // 👈 这里包成数组
+                    route: unappliedRoutes, //  这里包成数组
                 });
             }
         });
@@ -1322,10 +1400,20 @@ const generateDefaultTaskName = () => {
     const firstFlightNumber = taskList.value[0]?.flightList?.[0]?.flightNumber || '未知航班'
     const totalCountry = taskList.value.length
     const firstCountry = taskList.value[0]?.overflyCountry
+    const attribution = curTaskAttrInput.value == 'SCHEDULED' ? '定期' : '非定期'
     const totalFlights = taskList.value.reduce((sum, item) => sum + item.flightList.length, 0)
-    return `${timestamp}创建_${firstFlightNumber}等航班_${totalCountry}个国家的飞越申请`
+    return `${timestamp}创建_${firstFlightNumber}等航班_${totalCountry}个国家的${attribution}飞越申请`
+}
+const generateTaskAttribution = () => {
+    return curTaskAttrInput.value = taskList.value[0]?.flightList[0]?.attribution.toUpperCase()
+}
+const generateTaskSeason = () => {
+    return curTaskSeason.value = taskList.value[0]?.flightList[0]?.season.toUpperCase()
 }
 const curTaskNameInput = ref()
+const curTaskAttrInput = ref()
+const curTaskSeason = ref()
+
 const submitTaskToServer = async () => {
     if (!taskList.value.length) return
     console.log('生成任务...')
@@ -1333,9 +1421,15 @@ const submitTaskToServer = async () => {
     const now = dayjs().format('YYYY-MM-DD HH:mm:ss')
     const taskKey = sha256(JSON.stringify(taskList.value) + now).toString()
     const taskName = curTaskNameInput.value?.trim() || generateDefaultTaskName()
+    const taskAttribution = curTaskAttrInput.value || generateTaskAttribution()
+    const taskSeason = curTaskSeason.value || generateTaskSeason()
+
     const payload = {
         taskName,
         taskKey,
+        taskAttribution,
+        // taskType,
+        taskSeason,
         createTime: now,
         updateTime: now,
         data: JSON.stringify(taskList.value),
@@ -1362,16 +1456,19 @@ const submitTaskToServer = async () => {
 }
 const emit = defineEmits(['refreshFlights']);
 const taskListInServer = ref()
-const openTaskDialog = async (taskKeys) => {
-    // const taskKeysOpen = JSON.parse(taskKeys)
-    // console.log('taskKeysOpen',taskKeysOpen)
-    const taskResponse = await getTaskList()
-    taskListInServer.value = taskResponse.data
-    taskInDialog.value = taskListInServer.value.filter(task =>
-        taskKeys.includes(task.taskKey)
-    )
-    taskDialogVisible.value = true
-}
+const curAttrSelect = ref('schedule')
+// const changeAttribution = (tab) => {
+//     curAttrSelect.value = tab.paneName;
+//     console.log('curAttrSelect', curAttrSelect)
+//     filteredFlights.value = parentFlights.value.filter(
+//         i => i.attribution === curAttrSelect.value
+//     );
+// };
+// const changeAttribution = (tab)=>{
+//     curAttrSelect.value = tab.label
+//     filteredFlights.value = filteredFlights.value.filter(i=>{i.attribution = curAttrSelect.value })
+
+// }
 watch(
     () => props.initialFlightData,
     (newVal) => {
@@ -1400,6 +1497,9 @@ watch(applyRequired, () => {
 watch(showCreateTask, (val) => {
     if (val) {
         // 弹窗打开时，预设默认任务名
+        curTaskAttrInput.value = generateTaskAttribution()
+        curTaskSeason.value = generateTaskSeason()
+
         curTaskNameInput.value = generateDefaultTaskName()
     }
 })

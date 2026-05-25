@@ -1,3 +1,4 @@
+<!-- flightCard.vue -->
 <template>
     <div>
       <el-card shadow="hover" class="flight-card">

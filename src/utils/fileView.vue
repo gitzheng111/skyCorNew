@@ -26,7 +26,7 @@
           </el-col> -->
           <el-col :span="20">
             <div class="fileTitle">
-              <el-text tag="b">文件名：{{ decodeURIComponent(props.file?.name) || '未命名文件' }}</el-text>
+              <el-text tag="b">文件名：{{ props.file?.name || '未命名文件' }}</el-text>
             </div>
             <!-- <div class="file-name text-base font-medium">
                 
@@ -46,7 +46,7 @@
 import { computed, watch, ref } from 'vue'
 import { Document } from '@element-plus/icons-vue'
 import { ElSkeleton, ElSkeletonItem } from 'element-plus'
-import { formatTime } from '../utils/tool.js'
+import { formatTime,fixFilenameEncoding } from '../utils/tool.js'
 import { fixEncoding } from '../utils/fileNameEncode.js'
 // import { } from '@element-plus/icons-vue'
 

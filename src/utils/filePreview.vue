@@ -1,14 +1,14 @@
 <!-- utils/filePreview.vue -->
 <template>
     <div v-if="inline">
-        <div v-loading="loading" style="height: 80vh;overflow: auto;width: 100%;">
+        <div v-loading="loading" style="height: 100vh;overflow: auto;width: 95%;">
             <!-- Word 预览 -->
             <vue-office-docx v-if="previewType === 'docx' && previewContent" :src="previewContent"
                 class="office-preview" />
         </div>
     </div>
-    <el-dialog v-else v-model="visible" width="80%" :title="fileName" destroy-on-close>
-        <div v-loading="loading" style="height: 80vh;">
+    <el-dialog v-else v-model="visible" width="95%" :title="fileName" destroy-on-close>
+        <div v-loading="loading" style="height: 100vh;;">
             <!-- PDF -->
             <iframe v-if="previewType === 'pdf' && previewContent" :src="previewContent"
                 style="width: 100%; height: 100%; border: none"></iframe>

@@ -95,7 +95,7 @@ const handleBatchDelete = async () => {
         // 调用后端接口进行删除
         await deleteAircraftByIds(idsToDelete)
 
-        selectedRoutes.value = []
+        selectedAircraft.value = []
         const newAirportResponse = await getAircraftType();
         if (newAirportResponse?.data) {
             airportCodeList.value = newAirportResponse.data;
@@ -128,26 +128,31 @@ const editAircraft = (row) => {
 }
 
 const onSubmit = async () => {
-    console.log('addAircraftData', addAircraftData)
     const submitData = addAircraftData.value.map(item => ({
         ...item,
         aircraftNumber: JSON.stringify(item.aircraftNumber),
         anotherName: JSON.stringify(item.anotherName)
     }))
+    console.log('提交的机型数据', submitData)
 
     if (editAircraftMode.value === true) {
-        updateAircraftType(submitData)
-            .then(async (aircraftResponse) => { // 直接接收参数
-                console.log('aircraftResponse', aircraftResponse)
-                ElMessage.success('更新成功')
+        try {
+            const aircraftResponse = await updateAircraftType(submitData)
 
-                const newAirportResponse = await getAircraftType()
-                airportCodeList.value = newAirportResponse.data
-            })
-            .catch(err => {
-                ElMessage.error('失败')
-                console.error('添加失败:', err)
-            })
+            console.log('aircraftResponse', aircraftResponse)
+
+            ElMessage.success('更新成功')
+
+            const newAirportResponse = await getAircraftType()
+
+            airportCodeList.value = newAirportResponse.data
+
+        } catch (err) {
+
+            ElMessage.error('失败')
+
+            console.error('添加失败:', err)
+        }
     } else {
 
         const aircraftResponse = await addAircraftType(submitData).then(() => {

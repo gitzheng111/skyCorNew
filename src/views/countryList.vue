@@ -1,168 +1,172 @@
 <template>
-    <Searcher mode="country" :list="countryList" @update:result="filteredData = $event" />
-    <div class="add-button-box">
-        <el-button type="primary" @click="addCountry" class="add-button">新增国家</el-button>
-        <el-button type="danger" :disabled="selectedCountry.length === 0" @click="handleBatchDelete">
-            删除
-        </el-button>
-    </div>
-    <el-table :data="filteredData" style="width: 100%" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" />
-        <el-table-column label="国家" prop="country" width="80"></el-table-column>
-        <el-table-column label="是否需要申请" width="80">
-            <template #default="{ row }">
-                <el-tag :type="row.needApply == '1' ? 'danger' : 'primary'">
-                    {{ row.needApply == '1' ? '是' : '否' }}
-                </el-tag>
-            </template>
+    <el-tabs v-model="activeName" type="border-card" class="demo-tabs">
+        <el-tab-pane v-for="tab in tabs" :key="tab.name" :label="tab.label" :name="tab.name"></el-tab-pane>
+    </el-tabs>
+    <div v-if="activeName=='countryRules'">
+        <Searcher mode="country" :list="countryList" @update:result="filteredData = $event" />
+        <div class="add-button-box">
+            <el-button type="primary" @click="addCountry" class="add-button">新增国家</el-button>
+            <el-button type="danger" :disabled="selectedCountry.length === 0" @click="handleBatchDelete">
+                删除
+            </el-button>
+        </div>
+        <el-table :data="filteredData" style="width: 100%" @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" />
+            <el-table-column label="国家" prop="country" width="80"></el-table-column>
+            <el-table-column label="是否需要申请" width="80">
+                <template #default="{ row }">
+                    <el-tag :type="row.needApply == '1' ? 'danger' : 'primary'">
+                        {{ row.needApply == '1' ? '是' : '否' }}
+                    </el-tag>
+                </template>
 
-        </el-table-column>
-        <el-table-column label="变更申请">
-            <template #default="{ row }">
-                <el-tag :type="row.changeApply?.changeRoute ? 'danger' : 'success'">改航{{
-                    row.changeApply?.changeRoute ? '用' : '不用' }}申请</el-tag>
-                <el-tag :type="row.changeApply?.changeFlightNumber ? 'danger' : 'success'">改航班号{{
-                    row.changeApply?.changeFlightNumber ? '用' : '不用' }}申请</el-tag>
+            </el-table-column>
+            <el-table-column label="变更申请">
+                <template #default="{ row }">
+                    <el-tag :type="row.changeApply?.changeRoute ? 'danger' : 'success'">改航{{
+                        row.changeApply?.changeRoute ? '用' : '不用' }}申请</el-tag>
+                    <el-tag :type="row.changeApply?.changeFlightNumber ? 'danger' : 'success'">改航班号{{
+                        row.changeApply?.changeFlightNumber ? '用' : '不用' }}申请</el-tag>
 
-            </template>
-        </el-table-column>
+                </template>
+            </el-table-column>
 
-        <el-table-column label="联系方式" width="220">
-            <template #default="{ row }">
-                <div style="display: flex; flex-direction: column; gap: 4px;" v-for="item in row.contactInfo"
-                    :key="item">
-                    <!-- 邮箱 -->
-                    <div>
-                        <span style="margin-right: 6px;">邮箱：</span>
-                        <el-tag class="contactInfoTag" :key="'email-' + idx" type="success" disable-transitions
-                            @click="copyToClipboard(item.email)">
-                            {{ item.email }}
-                        </el-tag>
-                    </div>
+            <el-table-column label="联系方式" width="220">
+                <template #default="{ row }">
+                    <div style="display: flex; flex-direction: column; gap: 4px;" v-for="item in row.contactInfo"
+                        :key="item">
+                        <!-- 邮箱 -->
+                        <div>
+                            <span style="margin-right: 6px;">邮箱：</span>
+                            <el-tag class="contactInfoTag" :key="'email-' + idx" type="success" disable-transitions
+                                @click="copyToClipboard(item.email)">
+                                {{ item.email }}
+                            </el-tag>
+                        </div>
 
-                    <!-- 电话 -->
-                    <div>
-                        <span style="margin-right: 6px;">电话：</span>
-                        <el-tag class="contactInfoTag" :key="'phone-' + idx" type="info" disable-transitions
-                            @click="copyToClipboard(item.phone)">
-                            {{ item.phone ? item.phone : '未录入' }}
-                        </el-tag>
-                    </div>
-                </div>
-            </template>
-        </el-table-column>
-        <!-- <el-table-column label="申请需求" prop="applyRequire"></el-table-column> -->
-        <!-- <el-table-column label="批复规则" prop="permitRules"></el-table-column> -->
-        <el-table-column label="定期航班申请件" prop="scheduleTemplate" show-overflow-tooltip>
-
-            <template #default="{ row }">
-                <div v-if="row.scheduleTemplate?.name">
-                    <el-link type="primary" @click="previewFile(row.scheduleTemplate)">
-                        {{ fixEncoding(row.scheduleTemplate.name) || '查看模板' }}
-                    </el-link>
-                </div>
-                <div v-else>无</div>
-            </template>
-        </el-table-column>
-        <el-table-column label="非定期航班申请件" prop="nonScheduleTemplate" show-overflow-tooltip>
-
-            <template #default="{ row }">
-                <div v-if="row.nonScheduleTemplate?.name">
-                    <el-link type="primary" @click="previewFile(row.nonScheduleTemplate)">
-                        {{ fixEncoding(row.nonScheduleTemplate.name) || '查看模板' }}
-                    </el-link>
-                </div>
-                <div v-else>无</div>
-            </template>
-        </el-table-column>
-        <el-table-column label="定期航班更改航路申请件" prop="scheduleChangeRouteTemplate" show-overflow-tooltip>
-            <template #default="{ row }">
-                <div v-if="row.scheduleChangeRouteTemplate?.name">
-                    <el-link type="primary" @click="previewFile(row.scheduleChangeRouteTemplate)">
-                        {{ fixEncoding(row.scheduleChangeRouteTemplate.name) || '查看模板' }}
-                    </el-link>
-                </div>
-                <div v-else>无</div>
-            </template>
-        </el-table-column>
-        <el-table-column label="定期航班更改航班号申请件" prop="scheduleChangeFlightNumberTemplate" show-overflow-tooltip>
-            <template #default="{ row }">
-                <div v-if="row.scheduleChangeFlightNumberTemplate?.name">
-                    <el-link type="primary" @click="previewFile(row.scheduleChangeFlightNumberTemplate)">
-                        {{ fixEncoding(row.scheduleChangeFlightNumberTemplate.name) || '查看模板' }}
-                    </el-link>
-                </div>
-                <div v-else>无</div>
-            </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="操作" min-width="120" width="80">
-            <template #default="{ row }">
-                <el-button link type="primary" @click="editCountry(row.id)">
-                    编辑
-                </el-button>
-            </template>
-        </el-table-column>
-
-    </el-table>
-    <el-dialog v-model="showCountryList" width="1200">
-        <el-form :model="editCountryData" label-width="140px">
-            <el-form-item label="国家">
-                <el-input v-model="editCountryData.country" />
-            </el-form-item>
-            <el-form-item label="联系方式">
-                <template v-if="editCountryData.contactInfo && Array.isArray(editCountryData.contactInfo)">
-                    <div v-for="(item, index) in (editCountryData.contactInfo || [])" :key="index" class="contact-item"
-                        style="margin-bottom: 8px;">
-                        <el-input v-model="item.email" placeholder="邮箱" style="width: 45%; margin-right: 10px;" />
-                        <el-input v-model="item.phone" placeholder="电话" style="width: 45%;" />
-                        <el-button type="danger" @click="removeContact(index)">删除</el-button>
+                        <!-- 电话 -->
+                        <div>
+                            <span style="margin-right: 6px;">电话：</span>
+                            <el-tag class="contactInfoTag" :key="'phone-' + idx" type="info" disable-transitions
+                                @click="copyToClipboard(item.phone)">
+                                {{ item.phone ? item.phone : '未录入' }}
+                            </el-tag>
+                        </div>
                     </div>
                 </template>
-                <el-button type="primary" @click="addContact">添加联系方式</el-button>
+            </el-table-column>
+            <!-- <el-table-column label="申请需求" prop="applyRequire"></el-table-column> -->
+            <!-- <el-table-column label="批复规则" prop="permitRules"></el-table-column> -->
+            <el-table-column label="定期航班申请件" prop="scheduleTemplate" show-overflow-tooltip>
 
-                <!-- <el-button type="primary" @click="addContact">添加联系方式</el-button> -->
-            </el-form-item>
-            <el-form-item label="是否需要申请">
-                <el-radio-group v-model="needApply">
-                    <el-radio :value="true" size="large">需要</el-radio>
-                    <el-radio :value="false" size="large">不需要</el-radio>
-                </el-radio-group>
-            </el-form-item>
-            <el-form-item label="改航是否需要申请">
-                <el-radio-group v-model="editCountryData.changeApply.changeRoute">
-                    <el-radio :value="true" size="large">需要</el-radio>
-                    <el-radio :value="false" size="large">不需要</el-radio>
-                </el-radio-group>
-            </el-form-item>
-            <el-form-item label="改航班号是否需要申请">
-                <el-radio-group v-model="editCountryData.changeApply.changeFlightNumber">
-                    <el-radio :value="true" size="large">需要</el-radio>
-                    <el-radio :value="false" size="large">不需要</el-radio>
-                </el-radio-group>
-            </el-form-item>
-            <el-form-item label="申请需求">
-                <div class="apply-templates-container">
-                    <el-card v-for="(item, index) in applyTemplates" :key="index" shadow="hover" class="apply-card">
-                        <h3 class="apply-type">{{ item.type }}</h3>
+                <template #default="{ row }">
+                    <div v-if="row.scheduleTemplate?.name">
+                        <el-link type="primary" @click="previewFile(row.scheduleTemplate)">
+                            {{ fixEncoding(row.scheduleTemplate.name) || '查看模板' }}
+                        </el-link>
+                    </div>
+                    <div v-else>无</div>
+                </template>
+            </el-table-column>
+            <el-table-column label="非定期航班申请件" prop="nonScheduleTemplate" show-overflow-tooltip>
 
-                        <div v-for="field in item.fields" :key="field.section" class="field-group">
-                            <h4 class="field-section">{{ field.section }}</h4>
-                            <el-checkbox v-model="checkAllMap[item.type][field.section]"
-                                :indeterminate="isIndeterminateMap[item.type][field.section]"
-                                @change="(val) => handleCheckAllChange(item.type, field.section, field.items, val)"
-                                :disabled="!needApply">
-                                全选
-                            </el-checkbox>
+                <template #default="{ row }">
+                    <div v-if="row.nonScheduleTemplate?.name">
+                        <el-link type="primary" @click="previewFile(row.nonScheduleTemplate)">
+                            {{ fixEncoding(row.nonScheduleTemplate.name) || '查看模板' }}
+                        </el-link>
+                    </div>
+                    <div v-else>无</div>
+                </template>
+            </el-table-column>
+            <el-table-column label="定期航班更改航路申请件" prop="scheduleChangeRouteTemplate" show-overflow-tooltip>
+                <template #default="{ row }">
+                    <div v-if="row.scheduleChangeRouteTemplate?.name">
+                        <el-link type="primary" @click="previewFile(row.scheduleChangeRouteTemplate)">
+                            {{ fixEncoding(row.scheduleChangeRouteTemplate.name) || '查看模板' }}
+                        </el-link>
+                    </div>
+                    <div v-else>无</div>
+                </template>
+            </el-table-column>
+            <el-table-column label="定期航班更改航班号申请件" prop="scheduleChangeFlightNumberTemplate" show-overflow-tooltip>
+                <template #default="{ row }">
+                    <div v-if="row.scheduleChangeFlightNumberTemplate?.name">
+                        <el-link type="primary" @click="previewFile(row.scheduleChangeFlightNumberTemplate)">
+                            {{ fixEncoding(row.scheduleChangeFlightNumberTemplate.name) || '查看模板' }}
+                        </el-link>
+                    </div>
+                    <div v-else>无</div>
+                </template>
+            </el-table-column>
+            <el-table-column fixed="right" label="操作" min-width="120" width="80">
+                <template #default="{ row }">
+                    <el-button link type="primary" @click="editCountry(row.id)">
+                        编辑
+                    </el-button>
+                </template>
+            </el-table-column>
 
-                            <el-checkbox-group v-model="selectedApplyRequire[item.type][field.section]"
-                                class="checkbox-group"
-                                @change="() => handleCheckedChange(item.type, field.section, field.items)"
-                                :disabled="!needApply">
-                                <el-checkbox v-for="option in field.items" :key="option" :label="option">
-                                    {{ option }}
+        </el-table>
+        <el-dialog v-model="showCountryList" width="1200">
+            <el-form :model="editCountryData" label-width="140px">
+                <el-form-item label="国家">
+                    <el-input v-model="editCountryData.country" />
+                </el-form-item>
+                <el-form-item label="联系方式">
+                    <template v-if="editCountryData.contactInfo && Array.isArray(editCountryData.contactInfo)">
+                        <div v-for="(item, index) in (editCountryData.contactInfo || [])" :key="index"
+                            class="contact-item" style="margin-bottom: 8px;">
+                            <el-input v-model="item.email" placeholder="邮箱" style="width: 45%; margin-right: 10px;" />
+                            <el-input v-model="item.phone" placeholder="电话" style="width: 45%;" />
+                            <el-button type="danger" @click="removeContact(index)">删除</el-button>
+                        </div>
+                    </template>
+                    <el-button type="primary" @click="addContact">添加联系方式</el-button>
+
+                    <!-- <el-button type="primary" @click="addContact">添加联系方式</el-button> -->
+                </el-form-item>
+                <el-form-item label="是否需要申请">
+                    <el-radio-group v-model="needApply">
+                        <el-radio :value="true" size="large">需要</el-radio>
+                        <el-radio :value="false" size="large">不需要</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item label="改航是否需要申请">
+                    <el-radio-group v-model="editCountryData.changeApply.changeRoute">
+                        <el-radio :value="true" size="large">需要</el-radio>
+                        <el-radio :value="false" size="large">不需要</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item label="改航班号是否需要申请">
+                    <el-radio-group v-model="editCountryData.changeApply.changeFlightNumber">
+                        <el-radio :value="true" size="large">需要</el-radio>
+                        <el-radio :value="false" size="large">不需要</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item label="申请需求">
+                    <div class="apply-templates-container">
+                        <el-card v-for="(item, index) in applyTemplates" :key="index" shadow="hover" class="apply-card">
+                            <h3 class="apply-type">{{ item.type }}</h3>
+
+                            <div v-for="field in item.fields" :key="field.section" class="field-group">
+                                <h4 class="field-section">{{ field.section }}</h4>
+                                <el-checkbox v-model="checkAllMap[item.type][field.section]"
+                                    :indeterminate="isIndeterminateMap[item.type][field.section]"
+                                    @change="(val) => handleCheckAllChange(item.type, field.section, field.items, val)"
+                                    :disabled="!needApply">
+                                    全选
                                 </el-checkbox>
-                            </el-checkbox-group>
-                            <!-- <el-checkbox v-model="checkAll" :indeterminate="isIndeterminate"
+
+                                <el-checkbox-group v-model="selectedApplyRequire[item.type][field.section]"
+                                    class="checkbox-group"
+                                    @change="() => handleCheckedChange(item.type, field.section, field.items)"
+                                    :disabled="!needApply">
+                                    <el-checkbox v-for="option in field.items" :key="option" :label="option">
+                                        {{ option }}
+                                    </el-checkbox>
+                                </el-checkbox-group>
+                                <!-- <el-checkbox v-model="checkAll" :indeterminate="isIndeterminate"
                                 @change="handleCheckAllChange" :disabled="!needApply">
                                 全选
                             </el-checkbox>
@@ -172,44 +176,45 @@
                                     {{ option }}
                                 </el-checkbox>
                             </el-checkbox-group> -->
-                        </div>
-                    </el-card>
-                </div>
-            </el-form-item>
+                            </div>
+                        </el-card>
+                    </div>
+                </el-form-item>
 
-            <el-form-item label="定期航班申请件">
-                <template v-if="editCountryData.scheduleTemplate?.name">
-                    <el-link type="primary" @click="previewFile(editCountryData.scheduleTemplate)"
-                        :disabled="!needApply">
-                        {{ fixEncoding(editCountryData.scheduleTemplate.name) }}
-                    </el-link>
-                    <el-button type="danger" text size="small" @click="removeTemplateFile('scheduleTemplate')"
-                        :disabled="!needApply">
-                        删除
-                    </el-button>
-                </template>
-                <el-upload v-else :action="uploadURL" :auto-upload="false" :show-file-list="true" :disabled="!needApply"
-                    :on-change="(file) => handleFileChange(file, 'scheduleTemplate')" accept=".pdf,.doc,.docx,.xlsx">
-                    <el-button>上传定期航班申请件</el-button>
-                </el-upload>
-            </el-form-item>
-            <el-form-item label="非定期航班申请件">
-                <template v-if="editCountryData.nonScheduleTemplate?.name">
-                    <el-link type="primary" @click="previewFile(editCountryData.nonScheduleTemplate)"
-                        :disabled="!needApply">
-                        {{ fixEncoding(editCountryData.nonScheduleTemplate.name) }}
-                    </el-link>
-                    <el-button :disabled="!needApply" type="danger" text size="small"
-                        @click="removeTemplateFile('nonScheduleTemplate')">
-                        删除
-                    </el-button>
-                </template>
-                <el-upload v-else :action="uploadURL" :auto-upload="false" :show-file-list="true"
-                    :on-change="(file) => handleFileChange(file, 'nonScheduleTemplate')" accept=".pdf,.doc,.docx">
-                    <el-button :disabled="!needApply">上传非定期航班申请件</el-button>
-                </el-upload>
-            </el-form-item>
-            <!-- <el-form-item label="非定期航班申请件">
+                <el-form-item label="定期航班申请件">
+                    <template v-if="editCountryData.scheduleTemplate?.name">
+                        <el-link type="primary" @click="previewFile(editCountryData.scheduleTemplate)"
+                            :disabled="!needApply">
+                            {{ fixEncoding(editCountryData.scheduleTemplate.name) }}
+                        </el-link>
+                        <el-button type="danger" text size="small" @click="removeTemplateFile('scheduleTemplate')"
+                            :disabled="!needApply">
+                            删除
+                        </el-button>
+                    </template>
+                    <el-upload v-else :action="uploadURL" :auto-upload="false" :show-file-list="true"
+                        :disabled="!needApply" :on-change="(file) => handleFileChange(file, 'scheduleTemplate')"
+                        accept=".pdf,.doc,.docx,.xlsx">
+                        <el-button>上传定期航班申请件</el-button>
+                    </el-upload>
+                </el-form-item>
+                <el-form-item label="非定期航班申请件">
+                    <template v-if="editCountryData.nonScheduleTemplate?.name">
+                        <el-link type="primary" @click="previewFile(editCountryData.nonScheduleTemplate)"
+                            :disabled="!needApply">
+                            {{ fixEncoding(editCountryData.nonScheduleTemplate.name) }}
+                        </el-link>
+                        <el-button :disabled="!needApply" type="danger" text size="small"
+                            @click="removeTemplateFile('nonScheduleTemplate')">
+                            删除
+                        </el-button>
+                    </template>
+                    <el-upload v-else :action="uploadURL" :auto-upload="false" :show-file-list="true"
+                        :on-change="(file) => handleFileChange(file, 'nonScheduleTemplate')" accept=".pdf,.doc,.docx">
+                        <el-button :disabled="!needApply">上传非定期航班申请件</el-button>
+                    </el-upload>
+                </el-form-item>
+                <!-- <el-form-item label="非定期航班申请件">
                 <template v-if="editCountryData.nonScheduleTemplate?.name">
                     <el-link type="primary" @click="viewFile(editCountryData.scheduleTemplate)">
                         {{ editCountryData.scheduleTemplate.name }}
@@ -222,16 +227,24 @@
                 </el-upload>
             </el-form-item> -->
 
-            <!-- 其他字段可照此类推 -->
+                <!-- 其他字段可照此类推 -->
 
-        </el-form>
+            </el-form>
 
-        <template #footer>
-            <el-button @click="showCountryList = false">取消</el-button>
-            <el-button type="primary" @click="saveCountry">保存</el-button>
-        </template>
-    </el-dialog>
-    <filePreview :file="currentFile" v-model:visible="previewVisible" @extract-fields="onFieldsExtracted" />
+            <template #footer>
+                <el-button @click="showCountryList = false">取消</el-button>
+                <el-button type="primary" @click="saveCountry">保存</el-button>
+            </template>
+        </el-dialog>
+        <filePreview :file="currentFile" v-model:visible="previewVisible" @extract-fields="onFieldsExtracted" />
+    </div>
+    <div v-if="activeName=='riskBoard'">
+        <countryRisk></countryRisk>
+    </div>
+    <div v-if="activeName=='mapRisk'">
+        <mapRisk></mapRisk>
+    </div>
+
 
 </template>
 <script setup>
@@ -248,9 +261,11 @@ import filePreview from '../utils/filePreview.vue'
 import Searcher from '../utils/searcher.vue'
 import { useLoading } from '../plugins/loading'
 import { template } from 'lodash-es';
+import countryRisk from '../views/countryRisk.vue'
+import mapRisk from '../views/mapRiskTool.vue'
 
 const loading = useLoading()
-
+const activeName = ref('countryRules')
 // import VueOfficeDocx from '@vue-office/docx';
 // import VueOfficeExcel from '@vue-office/excel';
 const countryList = ref()
@@ -268,6 +283,12 @@ const isIndeterminate = ref(true)
 const checkAllMap = reactive({})
 const isIndeterminateMap = reactive({})
 const selectedApplyRequire = reactive({})
+const tabs = ref([
+    { label: '国家规则', name: 'countryRules' },
+    { label: '风险看板', name: 'riskBoard' },
+    { label: '地图看板', name: 'mapRisk' }
+])
+
 const applyTemplates = [
     {
         type: '定期',
@@ -452,7 +473,7 @@ const saveCountry = async () => {
             formData.append('scheduleTemplate', 'null')  // 保持为空
         } else {
             // 否则正常传输字段
-            console.log('selectedApplyRequire',selectedApplyRequire)
+            console.log('selectedApplyRequire', selectedApplyRequire)
             formData.append('applyRequire', JSON.stringify(selectedApplyRequire))
             formData.append('nonScheduleTemplate', editCountryData.value.nonScheduleTemplate)
             formData.append('permitRules', editCountryData.value.permitRules)
@@ -461,7 +482,7 @@ const saveCountry = async () => {
             formData.append('scheduleTemplate', (editCountryData.value.scheduleTemplate))
             formData.append('changeApply', JSON.stringify(editCountryData.value?.changeApply || {
                 changeRoute: false,
-                changeFlightNumber: false
+                changeFlightNumber: true
             }))
         }
         for (let [key, value] of formData.entries()) {
@@ -709,6 +730,13 @@ onMounted(async () => {
 
 </script>
 <style scoped>
+.demo-tabs>.el-tabs__content {
+    padding: 32px;
+    color: #6b778c;
+    font-size: 32px;
+    font-weight: 600;
+}
+
 .contactInfoTag {
     border-radius: 8px;
     padding: 6px 16px;
