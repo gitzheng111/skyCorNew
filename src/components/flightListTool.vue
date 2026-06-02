@@ -1,8 +1,9 @@
+<!-- flightListTool.vue -->
 <template>
     <Searcher mode="flight" :list="parentFlights" @update:result="filteredFlights = $event" />
-    <el-Segmented v-model="timeMode" :options="timeModeOptions">
+    <!-- <el-Segmented v-model="timeMode" :options="timeModeOptions"> -->
 
-    </el-Segmented>
+    <!-- </el-Segmented> -->
     <div style="display: flex; justify-content: left; align-items: center;height: 50px;margin-left: 50px;">
         <!-- <el-button type="warning" @click="showApplyRequired">
             {{ hideRight ? '隐藏需申请航班' : '显示需申请航班' }}
@@ -38,141 +39,8 @@
 
                 <!-- <el-tag>{{ applyRequired.length }}个航班需申请</el-tag> -->
             </div>
-            <el-table :data="filteredFlights" @selection-change="handleSelectionChange" @row-click="showClickRowDetail">
-
-                <el-table-column type="selection" width="55" />
-
-                <el-table-column label="航季" sortable :sort-method="sortBy('flightNumber', 'string')">
-                    <template #default="{ row }">
-                        <div>{{ row.season }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column label="标签" sortable :sort-method="sortBy('label', 'string')">
-                    <template #default="{ row }">
-                        <el-tag :type="row.label == '换季航班' ? 'success' : 'warning'">{{ row.label }} </el-tag>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="attribution" label="性质" sortable :sort-method="sortBy('attribution', 'string')">
-                    <template #default="{ row }">
-                        <div>{{ row.attribution }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="flightNumber" label="航班号" sortable
-                    :sort-method="sortBy('flightNumber', 'string')">
-                    <template #default="{ row }">
-                        <div>{{ row.flightNumber }}</div>
-                    </template>
-                </el-table-column>
-
-                <el-table-column prop="departure" label="起飞机场" sortable :sort-method="sortBy('departure', 'string')">
-                    <template #default="{ row }">
-                        <div>{{ row.departure }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="departureTime" label="起飞时间" sortable
-                    :sort-method="sortBy('departureTime', 'time')">
-                    <template #default="{ row }">
-                        <div>{{ formatTimeFree(row.departureTime, row.departure) }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="arrival" label="落地机场" sortable :sort-method="sortBy('arrival', 'string')">
-                    <template #default="{ row }">
-                        <div>{{ row.arrival }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="arrivalTime" label="落地时间" sortable :sort-method="sortBy('arrivalTime', 'time')">
-                    <template #default="{ row }">
-                        <div>{{ formatTimeFree(row.arrivalTime, row.arrival) }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column label="航路可用" width="130">
-                    <template #default="{ row }">
-                        <div>
-                            <div>
-                                <el-tag type="primary">
-                                    规划{{ row.matchingRoutes.length }}条航路
-                                </el-tag>
-                            </div>
-                            <div style="display: flex;flex-direction: row;">
-                                <el-tag v-if="row.allValid !== 'all'" type="warning">
-                                    申{{ row.applyRoute }}
-                                </el-tag>
-                                <el-tag
-                                    :type="row.allValid === 'all' ? 'success' : (row.allValid > 0 ? 'warning' : 'danger')">
-                                    {{ row.allValid === 'all' ? '全部可用' : `可用${row.allValid ? row.allValid : '/'}` }}
-                                </el-tag>
-                            </div>
-
-
-                        </div>
-                    </template>
-                </el-table-column>
-                <el-table-column label="开始日期" sortable :sort-method="sortBy('startDate', 'datetime')">
-                    <template #default="{ row }">
-                        <div>{{ row.startDate }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column label="结束日期" sortable :sort-method="sortBy('endDate', 'datetime')">
-                    <template #default="{ row }">
-                        <div>{{ row.endDate }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="days" label="班期" width="200" sortable>
-                    <template #default="{ row }">
-                        <DaysShow :days="row.days" />
-
-                    </template>
-
-
-                </el-table-column>
-                <el-table-column label="机型">
-                    <template #default="{ row }">
-                        <el-tooltip effect="light" placement="top">
-                            <template #content>
-                                <div v-for="type in row.aircraftType" :key="type" style="margin-bottom: 8px;">
-                                    <template v-if="aircraftTypes[type]">
-                                        <strong>{{ type }}</strong>
-                                        <p>制造商: {{ aircraftTypes[type].manufacturer }}</p>
-                                        <p>座位数: {{ aircraftTypes[type].seats }}</p>
-                                        <p>航程: {{ aircraftTypes[type].range }} km</p>
-                                    </template>
-                                    <template v-else>
-                                        <strong>{{ type }}</strong>
-                                        <p>未知机型</p>
-                                    </template>
-                                </div>
-                            </template>
-
-                            <span>{{ formatAircraftType(row.aircraftType) }}</span>
-                        </el-tooltip>
-                    </template>
-                </el-table-column>
-
-                <el-table-column label="创建时间" sortable :sort-method="sortBy('createTime', 'datetime')">
-                    <template #default="{ row }">
-                        {{ formatDate(row.createTime) }}
-                        <!-- <daysPicker v-model="" /> -->
-                    </template>
-                </el-table-column>
-                <el-table-column label="更新时间" sortable :sort-method="sortBy('updateTime', 'datetime')">
-                    <template #default="{ row }">
-                        {{ formatDate(row.updateTime ? row.updateTime : row.createTime) }}
-                        <!-- <daysPicker v-model="" /> -->
-                    </template>
-                </el-table-column>
-                <el-table-column fixed="right" label="操作" min-width="120">
-
-                    <template #default="{ row }">
-                        <el-button type="primary" size="small" @click.stop="editFlight(row)">
-                            编辑
-                        </el-button>
-                        <!-- <el-button type="warning" size="small" @click.stop="changeFlight(row)">
-                            改
-                        </el-button> -->
-
-                    </template>
-                </el-table-column>
-            </el-table>
+            <FlightTable :data="filteredFlights" :time-mode="timeMode" :format-time="formatTimeFree"
+                @selection-change="handleSelectionChange" @row-click="showClickRowDetail" @edit="editFlight" />
             <changeEvalue v-model:visible="showChangeEvalue" :evalueData="evalueData" />
             <el-drawer v-model="drawerVisible" title="航班详情" direction="rtl" size="40%" :destroy-on-close="true">
                 <template v-if="clickFlight">
@@ -496,7 +364,7 @@ import DaysShow from '../utils/daysShow.vue'
 import { useLoading } from '../plugins/loading'
 import changeEvalue from '../utils/changeEvalue.vue'
 import { useSeasonData } from '../components/useSeasonUtils'
-
+import FlightTable from './flightTable.vue'
 const { todaySeason } = useSeasonData()
 
 const showChangeEvalue = ref(false)
@@ -615,7 +483,7 @@ const emptyFlight = () => ({
     // aircraftNumber: '',
     startDate: '',
     endDate: '',
-    label:'',
+    label: '',
     days: [],
 })
 
@@ -806,21 +674,30 @@ const onSubmit = async () => {
             // console.log('flightResponse ====', flightResponse)
 
             flightsData.value = newFlightResponse.data
+            if (curSeason.value) {
+                filteredFlights.value = flightsData.value.filter(f => f.season == curSeason.value.en)
+
+            }
+            console.log('新的航班数据 ====', newFlightResponse)
         }).catch(err => {
             ElMessage.error('失败');
             console.error('添加失败:', err);
         });
-        console.log('flightResponse ====', flightResponse)
+        console.log('修改返回信息 ====', flightResponse)
     } else {
         await addInfoCenter(messageBatch.value)
         const flightResponse = await addFlightsBatchs(finalData).then(async () => {
             ElMessage.success('航班数据添加成功');
             const newFlightResponse = await getFlights();
             flightsData.value = newFlightResponse.data
+            if (curSeason.value) {
+                filteredFlights.value = flightsData.value.filter(f => f.season == curSeason.value.en)
+
+            }
         }).catch(err => {
             console.error('添加失败:', err);
         });
-        console.log('flightResponse ====', flightResponse)
+        console.log('添加返回信息 ====', flightResponse)
 
     }
 
@@ -970,8 +847,8 @@ onMounted(async () => {
     curSeason.value = result.current
     const taskResponse = await getTaskList()
     taskListInServer.value = taskResponse.data
-    console.log('seasonData', seasonData)
-    console.log('curSeason', curSeason)
+    console.log('航季数据seasonData', seasonData)
+    console.log('当前航季curSeason', curSeason)
 
 })
 
@@ -1177,7 +1054,7 @@ const handleSelectAll = (checked) => {
 }
 const getFlightKey = (flight) =>
     `${flight.flightNumber}-${flight.departure}-${flight.arrival}`
-    //单选确认
+//单选确认
 const handleFlightSelect = ({ flight, checked }) => {
 
     const key = getFlightKey(flight)
@@ -1444,6 +1321,7 @@ const submitTaskToServer = async () => {
         ElMessage.success('任务已提交')
         console.log('提交成功:', res.data)
         showCreateTask.value = false
+        showChooseTaskVisible.value = false
         emit('refreshFlights');
         // const newFlightResponse = await getFlights();
         // loadInitialDataNew(newFlightResponse.data)

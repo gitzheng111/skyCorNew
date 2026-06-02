@@ -401,7 +401,7 @@
 
                                     </el-card>
 
-                                    <applyDoc v-model:show="showCreateApplyDoc" :curCountryInfo="curCountryInfo"
+                                    <applyDoc v-model:show="showCreateApplyDoc" :curCountryInfo="curCountryInfo" :attribution="viewData.taskAttribution"
                                         :curCountryData="curCountryData" :curTaskData="viewData" :templatePath="curTemplatePath"
                                         @close="handleApplyClose" />
                                 </el-col>

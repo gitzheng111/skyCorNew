@@ -1,32 +1,38 @@
 <!-- utils/filePreview.vue -->
 <template>
-    <div v-if="inline">
-        <div v-loading="loading" style="height: 100vh;overflow: auto;width: 95%;">
-            <!-- Word 预览 -->
-            <vue-office-docx v-if="previewType === 'docx' && previewContent" :src="previewContent"
-                class="office-preview" />
-        </div>
+  <div v-if="inline">
+    <div v-loading="loading" style="height: 100vh;overflow: auto;width: 95%;">
+      <!-- Word 预览 -->
+      <vue-office-docx v-if="previewType === 'docx' && previewContent" :src="previewContent" class="office-preview" />
     </div>
-    <el-dialog v-else v-model="visible" width="95%" :title="fileName" destroy-on-close>
-        <div v-loading="loading" style="height: 100vh;;">
-            <!-- PDF -->
-            <iframe v-if="previewType === 'pdf' && previewContent" :src="previewContent"
-                style="width: 100%; height: 100%; border: none"></iframe>
+  </div>
+  <el-dialog v-else v-model="visible" width="95%" :title="fileName" destroy-on-close>
+    <template #header>
+      <div class="dialog-header">
+        <span>{{ fileName }}</span>
 
-            <!-- Word -->
-            <vue-office-docx v-if="previewType === 'docx' && previewContent" :src="previewContent"
-                class="office-preview" />
+        <el-button type="primary" size="small" @click="handleDownload">
+          下载文件
+        </el-button>
+      </div>
+    </template>
+    <div v-loading="loading" style="height: 100vh;;">
+      <!-- PDF -->
+      <iframe v-if="previewType === 'pdf' && previewContent" :src="previewContent"
+        style="width: 100%; height: 100%; border: none"></iframe>
 
-            <!-- Excel -->
-            <vue-office-excel v-if="previewType === 'xlsx' && previewContent" :src="previewContent"
-                class="office-preview" />
+      <!-- Word -->
+      <vue-office-docx v-if="previewType === 'docx' && previewContent" :src="previewContent" class="office-preview" />
 
-            <!-- 不支持 -->
-            <div v-if="!['pdf', 'docx', 'xlsx'].includes(previewType)">
-                暂不支持该文件类型预览
-            </div>
-        </div>
-    </el-dialog>
+      <!-- Excel -->
+      <vue-office-excel v-if="previewType === 'xlsx' && previewContent" :src="previewContent" class="office-preview" />
+
+      <!-- 不支持 -->
+      <div v-if="!['pdf', 'docx', 'xlsx'].includes(previewType)">
+        暂不支持该文件类型预览
+      </div>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -41,9 +47,9 @@ import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
 const fileName = ref('文件预览')
 const props = defineProps({
-    file: Object,
-    visible: Boolean,
-    inline: Boolean
+  file: Object,
+  visible: Boolean,
+  inline: Boolean
 
 })
 // console.log('预览的文件',props.file)
@@ -141,6 +147,70 @@ const loading = ref(false)
 //     },
 //     { immediate: true }
 // )
+const handleDownload = async () => {
+
+    try {
+
+        // ================= 网络文件 =================
+        if (props.file?.source === 'net') {
+
+            const link = document.createElement('a')
+
+            link.href = encodeURI(props.file.url)
+
+            link.download = fileName.value
+
+            link.target = '_blank'
+
+            document.body.appendChild(link)
+
+            link.click()
+
+            document.body.removeChild(link)
+
+            return
+        }
+
+        // ================= 本地文件 =================
+        let blobUrl = ''
+
+        if (props.file?.file instanceof File) {
+
+            blobUrl = URL.createObjectURL(props.file.file)
+
+        } else if (props.file instanceof File) {
+
+            blobUrl = URL.createObjectURL(props.file)
+
+        } else if (props.file?.URL?.startsWith('blob:')) {
+
+            blobUrl = props.file.URL
+        }
+
+        if (!blobUrl) {
+
+            console.warn('没有可下载文件')
+
+            return
+        }
+
+        const link = document.createElement('a')
+
+        link.href = blobUrl
+
+        link.download = fileName.value
+
+        document.body.appendChild(link)
+
+        link.click()
+
+        document.body.removeChild(link)
+
+    } catch (e) {
+
+        console.error('下载失败', e)
+    }
+}
 watch(
   () => props.file,
   async (file) => {
@@ -231,40 +301,46 @@ watchEffect(() => {
 })
 
 const extractDocxVariables = async (buffer) => {
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer })
-    const text = result.value || ''
-    const fields = extractFieldsFromText(text)
-    emit('extract-fields', fields)
+  const result = await mammoth.extractRawText({ arrayBuffer: buffer })
+  const text = result.value || ''
+  const fields = extractFieldsFromText(text)
+  emit('extract-fields', fields)
 }
 
 const extractXlsxVariables = async (buffer) => {
-    const data = new Uint8Array(buffer)
-    const workbook = XLSX.read(data, { type: 'array' })
+  const data = new Uint8Array(buffer)
+  const workbook = XLSX.read(data, { type: 'array' })
 
-    let fullText = ''
-    workbook.SheetNames.forEach(sheetName => {
-        const sheet = workbook.Sheets[sheetName]
-        fullText += XLSX.utils.sheet_to_csv(sheet) + '\n'
-    })
+  let fullText = ''
+  workbook.SheetNames.forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName]
+    fullText += XLSX.utils.sheet_to_csv(sheet) + '\n'
+  })
 
-    const fields = extractFieldsFromText(fullText)
-    emit('extract-fields', fields)
+  const fields = extractFieldsFromText(fullText)
+  emit('extract-fields', fields)
 }
 
 const extractFieldsFromText = (text) => {
-    const matches = text.match(/{{\s*[\w.-]+\s*}}/g) || []
-    return [...new Set(matches.map(m => m.replace(/{{\s*|\s*}}/g, '')))]
+  const matches = text.match(/{{\s*[\w.-]+\s*}}/g) || []
+  return [...new Set(matches.map(m => m.replace(/{{\s*|\s*}}/g, '')))]
 }
 
 onMounted(() => {
-    // console.log('file-preview mounted')
+  // console.log('file-preview mounted')
 })
 </script>
 
 <style scoped>
 .office-preview {
-    height: 100%;
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+}
+.dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
-    overflow: auto;
 }
 </style>

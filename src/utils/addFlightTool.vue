@@ -12,8 +12,8 @@
         <!-- 上传Excel -->
         <div v-if="mode == 'byExcel'">
 
-            <SeasonSelect v-model="curSeason" />
-
+            <!-- <SeasonSelect v-model="curSeason" /> -->
+            <SeasonSelect v-model="curSeason" @change="handleSeasonChange" />
             <el-select v-model="selectAttribution" style="width: 30%;" v-if="!editMode">
                 <el-option v-for="item in attributeData" :key="item.attribute" :label="item.name"
                     :value="item.attribute" />
@@ -164,7 +164,7 @@
                     </template>
                 </el-table-column>
 
-                <el-table-column label="落地时间">
+                <el-table-column label="落地时间" width="120">
                     <template #default="{ row }">
                         <TimeInput v-model="row.arrivalTime" mode="split" />
 
@@ -234,7 +234,7 @@
             </div>
 
             <div style="text-align: right">
-                <el-button type="primary" @click="syncDataToFather(mode)">{{editMode ? '更新' : '创建'}}</el-button>
+                <el-button type="primary" @click="syncDataToFather(mode)">{{ editMode ? '更新' : '创建' }}</el-button>
             </div>
         </div>
         <addDataTool :mode="'airport'" v-model:visible="showAddAirport" :isEditing="editAirportMode"
@@ -565,6 +565,7 @@ const mappedFlights = ref([])
 
 // 映射父组件传来的编辑数据到表单结构
 const mapEditData = (data) => {
+    console.log('映射数据', data);
     const arrayData = Array.isArray(data) ? data : [data];
     return arrayData.map(f => ({
         flight_id: f.flight_id,
@@ -619,17 +620,13 @@ const prepRowData = (row) => {
 watch(
     () => [props.isEditing, props.editData],
     (val) => {
-        // console.log('props.editData', props.editData, ' props.isEditing', props.isEditing)
+        console.log('监测到编辑状态props.editData', props.editData, ' props.isEditing', props.isEditing)
         if (val && props.editData) {
             editMode.value = true
             mode.value = 'manAdd'
             mappedFlights.value = mapEditData(props.editData)
-            // mappedFlights.value.map(i=>{
-            //     prepRowData(i)
-            // })
-            // console.log('mode', mode.value)
+            console.log('映射后的编辑数据', mappedFlights.value)
 
-            // console.log('mappedFlights', mappedFlights.value)
         } else {
             mappedFlights.value = []
         }
@@ -676,27 +673,7 @@ const addRow = () => {
 
     mappedFlights.value.push(emptyForm())
 }
-// const emptyForm = () => ({
-//     season: '',
-//     attribution: '',
-//     flightNumber: '',
-//     departure: '',
-//     departureTime: '',
-//     arrival: '',
-//     arrivalTime: '',
-//     aircraftType: '',
-//     startDate: '',
-//     endDate: '',
-//     label: '',
-//     days: [],
-// })
-// const getReturnNumber =(input)=>{
-//     const lastTwo = input.slice(-2)
-//     const returnNumber = +lastTwo+1
-//     const removeLastTwo = input.slice(0, -2)
-//     console.log('回程航班',removeLastTwo+returnNumber)
-//     return removeLastTwo+returnNumber
-// }
+
 const getReturnNumber = (input) => {
     if (!input) return ''   //
 
@@ -821,14 +798,32 @@ const handleSelect_ACType = async (selectedTypes) => {
 
     console.log('aircraftNumberData:', aircraftNumberData.value);
 };
+const handleSeasonChange = (season) => {
 
+    const seasonInfo =
+        seasonData.value.find(
+            item => item.en === season
+        )
 
+    selectedSeason.value = seasonInfo
+
+    mappedFlights.value.forEach(row => {
+
+        row.season = season
+
+        row.label =
+            calcFlightLabel(
+                row,
+                seasonInfo
+            )
+    })
+}
 const needToMapData = ref([])
 
 const syncDataToFather = () => {
     // console.log('需要申请的机场代码',disMatchList)
     console.log('需要申请的机场代码', disMatchList)
-    console.log('点击更新后', mappedFlights.value)
+    console.log('点击更新后mappedFlights', mappedFlights.value)
 
     if (disMatchList.length != 0) {
         showAddAirport.value = true
@@ -1378,15 +1373,7 @@ watch(
     (val) => {
         mappedFlights.value = mapEditData(flightFileData.value)
         console.log('收到新的文件数据，映射为：', mappedFlights.value)
-        // if (val && props.editData) {
-        //     editMode.value = true
-        //     mode.value = 'manAdd'
-        //     console.log('mode',mode.value)
 
-        //     console.log('mappedFlights',mappedFlights.value)
-        // } else {
-        //     mappedFlights.value = []
-        // }
     },
     { immediate: true }
 )
@@ -1397,52 +1384,33 @@ watch(
     ],
     ([rows, season]) => {
 
-        console.log(
-            '当前航季信息',
-            currentSeasonData.current
-        )
+        // 编辑模式不处理
+        if (editMode.value) return
 
-        const selectedSeason =
-            season === currentSeasonData.current.en
-                ? currentSeasonData.current
-                : currentSeasonData.next
+        if (!rows?.length) return
 
-        console.log(
-            '真正选中的航季',
-            selectedSeason
-        )
+        const seasonInfo =
+            seasonData.value.find(
+                item => item.en === season
+            )
 
-        if (!rows?.length || !selectedSeason) return
+        if (!seasonInfo) return
 
         rows.forEach(item => {
 
-            item.season =
-                selectedSeason.en
-
-            item.startDate =
-                item.startDate ||
-                selectedSeason.seasonStart
-
-            item.endDate =
-                item.endDate ||
-                selectedSeason.seasonEnd
+            item.season = season
 
             if (
                 item.startDate &&
                 item.endDate
             ) {
-
                 item.label =
                     calcFlightLabel(
                         item,
-                        selectedSeason
+                        seasonInfo
                     )
             }
         })
-        console.log(
-            '修改后mappedFlights',
-            mappedFlights
-        )
     },
     {
         deep: true,

@@ -1,5 +1,5 @@
 import { ElMessage } from 'element-plus'
-
+//返回${year}/${month}/${day} ${hours}:${minutes}:${seconds}
 export const formatTime = (isoString) => {
   if (!isoString) return '';
   const date = new Date(isoString);
@@ -15,7 +15,7 @@ export const formatTime = (isoString) => {
 
   return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
 };
-
+//返回{year}/${month}/${day}
 export const formatDate = (input) => {
   if (!input) return '';
 
@@ -42,10 +42,10 @@ export const formatDate = (input) => {
   const year = date.getFullYear();
   const month = date.getMonth() + 1; // 月份从 0 开始
   const day = date.getDate();
-  const hour = date.getHours();
-  const min = date.getMinutes();
+  // const hour = date.getHours();
+  // const min = date.getMinutes();
 
-  return `${year}/${month}/${day} ${hour}:${min}`;
+  return `${year}/${month}/${day}`;
 };
 
 export const onlyDate = (input) => {

@@ -1,345 +1,329 @@
 <template>
-  <div class="searcher">
-    <el-form :inline="true" :model="searchForm" @keyup.enter="handleSearch">
-      <template v-for="field in searchFields" :key="field.prop">
-        <el-form-item :label="field.label">
-          <template v-if="field.prop === 'season'">
-            <SeasonSelect v-model="searchForm[field.prop]" />
-          </template>
-          <template v-else-if="field.prop === 'label'">
-            <el-select v-model="searchForm[field.prop]" placeholder="请选择标签" style="width: 240px">
-              <el-option v-for="item in labelOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </template>
-          <template v-else-if="field.prop === 'attribution'">
-            <el-select v-model="searchForm[field.prop]" placeholder="请选择航班性质" style="width: 240px">
-              <el-option v-for="item in attributionOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </template>
-          <template v-else-if="field.prop === 'departure' || field.prop === 'arrival' || field.prop === 'routeCode'">
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable
-              @input="searchForm[field.prop] = searchForm[field.prop].toUpperCase().replace(/[^A-Z]/g, '')" />
+  <div class="search-card">
+    <div class="main-searchBar">
+      <SeasonSelect v-model="season" class="season-select" />
+      <!-- 搜索框 -->
+      <el-input v-model="keyword" clearable size="large" class="search-input" placeholder="搜索航班号、机场、国家、航路、机型...">
+        <template #prefix>
+          <el-icon>
+            <Search />
+          </el-icon>
+        </template>
+      </el-input>
+      <div class="search-toolbar">
 
-          </template>
-          <template v-else-if="field.prop === 'filterBefore'">
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
 
-          </template>
-          <template v-else-if="field.prop === 'dateBetween'">
-            <el-date-picker v-model="dateRange" type="daterange" range-separator="到" start-placeholder="开始日期"
-              end-placeholder="结束日期" :size="size" @change="chooseDate" :shortcuts="shortcuts" />
-          </template>
-          <template v-else>
-            <el-input v-model="searchForm[field.prop]" :placeholder="`请输入${field.label}`" clearable />
 
-          </template>
+        <el-tag round type="success" size="large">
+          {{ resultCount }} 条数据
+        </el-tag>
 
-        </el-form-item>
-      </template>
+      </div>
 
-      <el-form-item>
-        <el-button type="primary" @click="handleSearch">搜索</el-button>
-        <el-button @click="handleReset">重置</el-button>
-      </el-form-item>
-    </el-form>
+    </div>
+
+    <!-- 第二行 -->
+
+
+    <!-- 搜索提示 -->
+    <div class="quick-tags">
+      快速检索
+      <el-tag v-for="item in quickKeywords" :key="item" round effect="plain" class="quick-tag" @click="keyword = item">
+        {{ item }}
+      </el-tag>
+
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { reactive, computed, watch, ref } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
-import { seasonCalculate, currentSeasonData } from '../utils/season.js'
 import { useSeasonData } from '../components/useSeasonUtils'
-import 'dayjs/locale/zh-cn'
-import { onlyDate } from '../utils/tool.js'
-const { todaySeason } = useSeasonData()
+
 const props = defineProps({
-  mode: { type: String, required: true }, // flight / route / permission / task
-  list: { type: Array, required: true }
+  mode: {
+    type: String,
+    default: 'flight'
+  },
+  list: {
+    type: Array,
+    default: () => []
+  }
 })
-const emit = defineEmits(['update:result'])
-const dateSelect = ref({ startDate: '', endDate: '' })
-const dateRange = ref()
-const labelOptions = [
-  {
-    value: '季中新增',
-    label: '季中新增',
-  },
-  {
-    value: '换季航班',
-    label: '换季航班',
-  },]
-const attributionOptions = [
-  {
-    value: 'Schedule',
-    label: '定期',
-  },
-  {
-    value: 'nonSchedule',
-    label: '非定期',
-  },]
-const chooseDate = () => {
-  searchForm['dateBetween'] = dateRange.value
 
-  // searchForm['startDate'] = onlyDate(dateRange.value[0])
-  // searchForm['endDate'] = onlyDate(dateRange.value[1])
-
-  console.log('dateRange', dateRange)
-  console.log('searchForm', searchForm)
-
-}
-const shortcuts = [
-  {
-    text: '选择一周',
-    value: () => {
-      const end = new Date()
-      const start = new Date()
-      end.setTime(start.getTime() + 3600 * 1000 * 24 * 7)
-      return [start, end]
-    },
-  },
-  {
-    text: '选择一个月',
-    value: () => {
-      const end = new Date()
-      const start = new Date()
-      end.setTime(start.getTime() + 3600 * 1000 * 24 * 30)
-      return [start, end]
-    },
-  },
-  {
-    text: '选择三个月',
-    value: () => {
-      const end = new Date()
-      const start = new Date()
-      end.setTime(start.getTime() + 3600 * 1000 * 24 * 90)
-      return [start, end]
-    },
-  },
+const quickKeywords = [
+  '菲律宾',
+  '日本',
+  '韩国',
+  '泰国',
+  'MF',
+  'A321',
+  'G471'
 ]
-// 各模式对应的搜索字段
-const fieldMap = {
-  flight: [
-    { label: '航季', prop: 'season' },
-    { label: '航班号', prop: 'flightNumber' },
-    { label: '起飞机场', prop: 'departure' },
-    { label: '目的机场', prop: 'arrival' },
-    { label: '几点之前', prop: 'filterBefore' },
-    { label: '飞越国家', prop: 'overflyCountry' },
-    { label: '选择日期', prop: 'dateBetween' },
-    { label: '标签', prop: 'label' },
-    { label: '航班性质', prop: 'attribution' },
-  ],
-  route: [
-    { label: '航季', prop: 'season' },
-    { label: '起飞机场', prop: 'departure' },
-    { label: '目的机场', prop: 'arrival' },
-    // { label: '起飞-到达', prop: 'sector' },
-    { label: '航路代码', prop: 'routeCode' },
-    { label: '飞越国家', prop: 'overflyCountry' }
-  ],
-  permission: [
-    { label: '航季', prop: 'season' },
-    { label: '国家', prop: 'country' },
-    { label: '批复号', prop: 'permission' },
-    { label: '航班号', prop: 'flightNumber' }
-  ],
-  task: [
-    { label: '航季', prop: 'season' },
-    { label: '任务名称', prop: 'taskName' },
-    { label: '航班号', prop: 'flightNumber' },
-    { label: '国家', prop: 'overflyCountry' }
-  ],
-  country: [
-    { label: '国家', prop: 'country' },
-  ]
-  ,
-  overflyData: [
-    { label: '航季', prop: 'season' },
-    { label: '国家', prop: 'country' },
-    // { label: '航季', prop: 'season' },
-  ]
-}
 
-const searchFields = computed(() => fieldMap[props.mode] || [])
+const emit = defineEmits([
+  'update:result'
+])
 
-// 初始化搜索表单
-const searchForm = reactive({})
-watch(
-  searchFields,
-  () => {
-    searchFields.value.forEach(f => (searchForm[f.prop] = ''))
-    if (todaySeason) {
-      console.log('todaySeason', todaySeason)
-      searchForm['season'] = todaySeason.value.en
-    }
-  },
-  { immediate: true }
+const { todaySeason } = useSeasonData()
+
+const keyword = ref('')
+const season = ref(todaySeason?.value?.en || '')
+
+const showSeason = computed(() =>
+  ['flight', 'route', 'permission', 'task'].includes(props.mode)
 )
 
-// 搜索逻辑
-// function handleSearch() {
-//   console.log('props', props)
-//   console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
-//   const filtered = props.list.filter(item => {
-//     return searchFields.value.every(f => {
-//       const val = searchForm[f.prop]?.trim()
-//       if (!val) return true
-//       const itemVal = Array.isArray(item[f.prop])
-//         ? item[f.prop].map(c => c.country || c).join(',')
-//         : (item[f.prop] ?? '').toString()
-//       return itemVal.includes(val)
-//     })
-//   })
-//   console.log('filtered result:', filtered) // 打印搜索结果
-//   emit('update:result', filtered)
-// }
-function normalizeFlightNumber(val) {
-  if (!val) return '';
+const resultCount = ref(0)
 
-  let str = val.toString().trim().toUpperCase();
+/**
+ * 构建索引文本
+ */
+function buildSearchText(item) {
+  const values = []
 
-  if (/^CXA\d+$/.test(str)) {
-    // 已经是 CXA 开头的格式
-    return str;
-  } else if (/^MF\d+$/.test(str)) {
-    // MF 开头 -> 去掉 MF，加上 CXA
-    return 'CXA' + str.replace(/^MF/, '');
-  } else if (/^\d+$/.test(str)) {
-    // 纯数字 -> 加 CXA
-    return 'CXA' + str;
+  const walk = obj => {
+    if (!obj) return
+
+    if (Array.isArray(obj)) {
+      obj.forEach(walk)
+      return
+    }
+
+    if (typeof obj === 'object') {
+      Object.values(obj).forEach(walk)
+      return
+    }
+
+    values.push(String(obj))
   }
 
-  // 其他情况原样返回（例如特殊前缀）
-  return str;
+  walk(item)
+
+  return values
+    .join('|')
+    .toUpperCase()
 }
-function handleSearch() {
-  // console.log('props', props.list)
-  console.log('searchForm', JSON.stringify(searchForm)) // 打印当前搜索条件
-  console.log('props.list', props.list)
-  const filtered = props.list.filter(item => {
-    // console.log('searchFields', searchFields.value)
-    //searchFields查找的参数
-    return searchFields.value.every(f => {
-      const val = Array.isArray(searchForm[f.prop]) ? searchForm[f.prop] : searchForm[f.prop]?.trim()
-      if (!val) return true
 
-      // 特殊处理 filterBefore
-      if (props.mode == 'flight' && f.prop === 'flightNumber') {
-        console.log('找航班号val', val)
-        console.log('找航班号val', typeof (val))
+/**
+ * 字段映射
+ */
+const fieldAlias = {
+  country: ['country'],
+  route: ['routeCode'],
+  dep: ['departure'],
+  arr: ['arrival'],
+  flight: ['flightNumber'],
+  aircraft: ['aircraftType'],
+  season: ['season']
+}
 
-        const flightNumberList = val
-          .split(/[,，\s]+/) // 支持 逗号 / 中文逗号 / 空格
-          .map(v => v.trim().toUpperCase())
-          .filter(Boolean)
-        const flightNo = item.flightNumber?.trim().toUpperCase()
+function getFieldValue(item, fields) {
+  const values = []
 
-        console.log('flightNumberList', flightNumberList)
-        return flightNumberList.some(v => flightNo.includes(v))
-        // return flightNumberList.includes(item.flightNumber)
-      }
-      if (props.mode == 'flight' && f.prop === 'filterBefore') {
-        // 只支持 HH:mm 或 HH 格式
-        let [h, m] = val.split(':')
-        if (!m) m = '00'
-        const limit = parseInt(h) * 60 + parseInt(m)
+  const walk = obj => {
+    if (!obj) return
 
-        // 假设航班对象有 departureTime / arrivalTime
-        const timeStr = item.departureTime || item.arrivalTime
-        if (!timeStr) return false
-        const [ih, im] = timeStr.split(':')
-        const flightMinutes = parseInt(ih) * 60 + parseInt(im)
+    if (Array.isArray(obj)) {
+      obj.forEach(walk)
+      return
+    }
 
-        return flightMinutes <= limit
-      }
-      if (props.mode == 'flight' && f.prop === 'dateBetween') {
-        console.log('搜索日期')
-        const [searchStartStr, searchEndStr] = val
-        const searchStart = new Date(searchStartStr)
-        const searchEnd = new Date(searchEndStr)
-
-        const flightStart = new Date(item.startDate)
-        const flightEnd = new Date(item.endDate)
-
-        // 判断航班是否包含搜索区间
-        return flightStart <= searchStart && flightEnd >= searchEnd
-        // return item.find(i => i.startDate > dateRange.value[0] && i.endDate < dateRange.value[1])
-      }
-
-      if (f.prop === 'overflyCountry') {
-        const valUpper = val.trim().toUpperCase()
-
-        // 匹配的关键词列表
-        const keywords = valUpper
-          .split(/[\/,，\s]+/)
-          .map(v => v.trim())
-          .filter(Boolean)
-        console.log('keywords', keywords)
-        if (keywords.length === 0) return true
-
-        // 确保有 matchingRoutes
-
-
-        // 遍历所有 matchingRoutes
-        if (props.mode == 'route') {
-          return item.overflyCountry.some(c => {
-            const name = (c?.country || '').toUpperCase()
-            return keywords.some(keyword => name.includes(keyword))
-          })
+    if (typeof obj === 'object') {
+      Object.entries(obj).forEach(([k, v]) => {
+        if (fields.includes(k)) {
+          values.push(String(v))
         }
-        if (props.mode == 'flightNumber') {
-          if (!Array.isArray(item.matchingRoutes)) return false
-          return item.matchingRoutes.some(route => {
-            if (!Array.isArray(route.overflyCountry)) return false
+        walk(v)
+      })
+    }
+  }
 
-            // 检查 route 内每个国家
-            return keywords.some(keyword =>
-              route.overflyCountry.some(c => {
-                const name = (c?.country || '').toUpperCase()
-                return name.includes(keyword)
-              })
-            )
-          })
-        }
+  walk(item)
 
+  return values.join('|').toUpperCase()
+}
+
+/**
+ * 智能搜索
+ */
+function searchData() {
+  let result = [...props.list]
+
+  if (season.value) {
+    result = result.filter(
+      item =>
+        !item.season ||
+        item.season === season.value
+    )
+  }
+
+  if (keyword.value.trim()) {
+    result = result.filter(matchKeyword)
+  }
+
+  resultCount.value = result.length
+
+  emit('update:result', result)
+}
+
+function matchKeyword(item) {
+  const text = buildSearchText(item)
+
+  const raw = keyword.value.trim()
+
+  /**
+   * OR
+   * MF812,MF814
+   */
+  if (raw.includes(',')) {
+    const keywords = raw
+      .split(',')
+      .map(i => i.trim().toUpperCase())
+      .filter(Boolean)
+
+    return keywords.some(k =>
+      text.includes(k)
+    )
+  }
+
+  /**
+   * AND
+   * 菲律宾 泰国
+   */
+  const parts = raw
+    .split(/\s+/)
+    .map(i => i.trim())
+    .filter(Boolean)
+
+  return parts.every(part => {
+    /**
+     * country:菲律宾
+     */
+    if (part.includes(':')) {
+      const [field, value] = part.split(':')
+
+      const fields = fieldAlias[field]
+
+      if (!fields) {
+        return text.includes(
+          value.toUpperCase()
+        )
       }
-      if (props.mode == 'overflyData' && f.prop === 'country') {
-        return item.fileData.permitFlight.find(i => i.flightNumber == normalizeFlightNumber(val))
-      }
 
+      return getFieldValue(
+        item,
+        fields
+      ).includes(
+        value.toUpperCase()
+      )
+    }
 
-      if (props.mode == 'permission' && f.prop === 'flightNumber') {
-        return item.find(i => i.country == val)
-      }
-      //  普通字符串匹配逻辑
-      // const itemVal = Array.isArray(item[f.prop])
-      //   ? item[f.prop].map(c => c.country || c).join(',')
-      //   : (item[f.prop] ?? '').toString()
-      // console.log('itemVal',itemVal)
-      // return itemVal.country.includes(val)
-      const itemVal = Array.isArray(item[f.prop])
-        ? item[f.prop].map(c => c.country || c).join(',')
-        : (item[f.prop] ?? '').toString()
-
-      // console.log('itemVal', itemVal)
-      return itemVal.toUpperCase().includes(val.toUpperCase())
-    })
+    return text.includes(
+      part.toUpperCase()
+    )
   })
-
-  console.log('filtered result:', filtered) // 打印搜索结果
-  emit('update:result', filtered)
 }
 
-function handleReset() {
-  searchFields.value.forEach(f => (searchForm[f.prop] = ''))
-  dateRange.value = ''
-  emit('update:result', props.list)
+function resetSearch() {
+  keyword.value = ''
+  season.value =
+    todaySeason?.value?.en || ''
+
+  searchData()
 }
+
+watch(
+  [
+    () => props.list,
+    keyword,
+    season
+  ],
+  searchData,
+  {
+    immediate: true,
+    deep: true
+  }
+)
 </script>
 
 <style scoped>
-.searcher {
-  padding: 10px 0;
+.search-card {
+
+  background: white;
+
+  border-radius: 20px;
+
+  width: 95%;
+
+  margin: auto;
+
+  padding: 18px 22px;
+
+  /* margin: 18px 0px; */
+
+  /* border: 1px solid #ebeef5; */
+
+  transition: .25s;
+}
+
+.search-card:hover {
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, .04);
+}
+
+.main-searchBar {
+  display: flex;
+
+  align-items: center;
+
+  gap: 18px;
+}
+
+.search-input {
+  width: 80%;
+  /* height: 40px; */
+  /* margin-bottom: 14px; */
+}
+
+.search-toolbar {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+}
+
+.season-select {
+
+  width:10%;
+}
+
+.quick-tags {
+
+  margin-top: 14px;
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+}
+
+.quick-tag {
+
+  cursor: pointer;
+
+  transition: .2s;
+}
+
+.quick-tag:hover {
+
+  transform: translateY(-1px);
 }
 </style>

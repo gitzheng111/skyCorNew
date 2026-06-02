@@ -238,9 +238,9 @@
         </el-dialog>
         <filePreview :file="currentFile" v-model:visible="previewVisible" @extract-fields="onFieldsExtracted" />
     </div>
-    <div v-if="activeName=='riskBoard'">
+    <!-- <div v-if="activeName=='riskBoard'">
         <countryRisk></countryRisk>
-    </div>
+    </div> -->
     <div v-if="activeName=='mapRisk'">
         <mapRisk></mapRisk>
     </div>
@@ -285,7 +285,7 @@ const isIndeterminateMap = reactive({})
 const selectedApplyRequire = reactive({})
 const tabs = ref([
     { label: '国家规则', name: 'countryRules' },
-    { label: '风险看板', name: 'riskBoard' },
+    // { label: '风险看板', name: 'riskBoard' },
     { label: '地图看板', name: 'mapRisk' }
 ])
 

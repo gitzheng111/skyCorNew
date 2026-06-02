@@ -101,6 +101,7 @@ const docBlob = ref(null)
 const curCountryApplyData = ref()
 watch(() => props.curCountryData, (newValue, oldValue) => {
     // 当 curCountryData 发生变化时，更新 curCountryApplyData
+    console.log('curCountryData changed:', newValue)
     if (newValue) {
         curCountryApplyData.value = newValue || {};  // 假设 applyData 是需要的部分
         // console.log('curCountryApplyData.value',curCountryApplyData.value)
@@ -385,6 +386,9 @@ const generateDocNew = async () => {
             country: props.curCountryInfo.country,
             date: formatDateToCountry(new Date().toISOString().split("T")[0], curCountryApplyData.value.overflyCountry, 'outside'),
             flightList: transformedFlightList || [],
+            season: curCountryApplyData.value.season.toUpperCase() || '',
+            attribution: props.attribution === 'SCHEDULED' ? 'SCHEDULED' : 'NONSCHEDULED',
+             routeList: sortedRouteList || [],
             // routeList: curCountryApplyData.value.overflyDetails || [],
             routeList: sortedRouteList || [],
             aircraftTypeAll: curCountryApplyData.value?.aircraftTypeAll,
