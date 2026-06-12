@@ -1,9 +1,7 @@
 <!-- flightListTool.vue -->
 <template>
-    <Searcher mode="flight" :list="parentFlights" @update:result="filteredFlights = $event" />
-    <!-- <el-Segmented v-model="timeMode" :options="timeModeOptions"> -->
-
-    <!-- </el-Segmented> -->
+    <Searcher mode="flight" :list="filteredFlights" @update:result="filteredFlights = $event" />
+ 
     <div style="display: flex; justify-content: left; align-items: center;height: 50px;margin-left: 50px;">
         <!-- <el-button type="warning" @click="showApplyRequired">
             {{ hideRight ? '隐藏需申请航班' : '显示需申请航班' }}
@@ -20,13 +18,7 @@
         </el-button>
 
     </div>
-    <!-- <div>
 
-        <el-tabs @tab-click="changeAttribution">
-            <el-tab-pane label="定期" name="Scheduled"></el-tab-pane>
-            <el-tab-pane label="非定期" name="nonSchedule"></el-tab-pane>
-        </el-tabs>
-    </div> -->
     <div style="display: flex; height: 100vh;">
         <div style="flex: 3; padding: 10px; border-right: 1px solid #ccc; overflow: auto;">
             <!-- <template #first> -->
@@ -64,7 +56,7 @@
                     <div v-if="clickFlight.matchingRoutes?.length">
                         <el-collapse>
                             <el-collapse-item v-for="(route, index) in clickFlight.matchingRoutes" :key="index">
-                                <template #title>
+                                <template #header>
                                     <div class="flex items-center justify-between w-full">
                                         <span>{{ route.routeCode }}</span>
                                         <el-tag v-if="route.isValid" type="success" size="small" effect="plain">
@@ -353,7 +345,8 @@ import dayjs from 'dayjs'
 import sha256 from 'crypto-js/sha256'
 import 'splitpanes/dist/splitpanes.css'
 import { useRouter } from 'vue-router'
-import Searcher from '../utils/searcher.vue'
+import Searcher from '../utils/smartSearcher/SearcherBar.vue'
+// import Searcher from '../utils/smartSearcher/searcher.vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
 import addFlightTool from '../utils/addFlightTool.vue'
 import overflyDataView from '../utils/overflyDataView.vue'
@@ -365,6 +358,7 @@ import { useLoading } from '../plugins/loading'
 import changeEvalue from '../utils/changeEvalue.vue'
 import { useSeasonData } from '../components/useSeasonUtils'
 import FlightTable from './flightTable.vue'
+// import { RecycleScroller } from 'vue-virtual-scroller'
 const { todaySeason } = useSeasonData()
 
 const showChangeEvalue = ref(false)

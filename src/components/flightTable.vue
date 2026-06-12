@@ -1,17 +1,10 @@
+//flightTable.vue
 <template>
     <div class="flight-list">
 
-        <FlightCard
-            v-for="flight in data"
-            :key="flight.flight_id"
-            :flight="flight"
-            :selected="selectedIds.includes(flight.flight_id)"
-            :time-mode="timeMode"
-            :format-time="formatTime"
-            @select="handleSelect"
-            @detail="emit('row-click', $event)"
-            @edit="emit('edit', $event)"
-        />
+        <FlightCard v-for="flight in data" :key="flight.flight_id" :flight="flight"
+            :selected="props.selectedIds.includes(flight.flight_id)" :time-mode="timeMode" :format-time="formatTime"
+            @select="handleSelect" @detail="emit('row-click', $event)" @edit="emit('edit', $event)" />
 
     </div>
 </template>
@@ -19,6 +12,7 @@
 <script setup>
 import { ref } from 'vue'
 import FlightCard from './flightCardView.vue'
+// import { RecycleScroller } from 'vue-virtual-scroller'
 
 const props = defineProps({
     data: {
@@ -32,48 +26,54 @@ const props = defineProps({
     formatTime: {
         type: Function,
         required: true
-    }
+    },
+    selectedIds: {
+    type: Array,
+    default: () => []
+  }
 })
 
 const emit = defineEmits([
     'selection-change',
     'row-click',
-    'edit'
+    'edit',
+  'toggle-select'
 ])
 
-const selectedIds = ref([])
-
-const handleSelect = flight => {
-
-    const index =
-        selectedIds.value.indexOf(
-            flight.flight_id
-        )
-
-    if (index > -1) {
-
-        selectedIds.value.splice(
-            index,
-            1
-        )
-
-    } else {
-
-        selectedIds.value.push(
-            flight.flight_id
-        )
-    }
-
-    emit(
-        'selection-change',
-        props.data.filter(
-            item =>
-                selectedIds.value.includes(
-                    item.flight_id
-                )
-        )
-    )
+const handleSelect = (flight) => {
+  emit('toggle-select', flight.flight_id)
 }
+// const handleSelect = flight => {
+
+//     const index =
+//         selectedIds.value.indexOf(
+//             flight.flight_id
+//         )
+
+//     if (index > -1) {
+
+//         selectedIds.value.splice(
+//             index,
+//             1
+//         )
+
+//     } else {
+
+//         selectedIds.value.push(
+//             flight.flight_id
+//         )
+//     }
+
+//     emit(
+//         'selection-change',
+//         props.data.filter(
+//             item =>
+//                 selectedIds.value.includes(
+//                     item.flight_id
+//                 )
+//         )
+//     )
+// }
 </script>
 
 <style scoped>
@@ -86,5 +86,10 @@ const handleSelect = flight => {
     gap: 18px;
 
     padding: 12px;
+}
+
+.flight-scroller {
+
+    height: calc(100vh - 220px);
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
     <el-dialog v-model="windowVisible" width="95%" top="3vh">
-        <template #title>
+        <template #header>
             <div>航班变更评估</div>
             <el-tag>选中{{ newData.length }}个航班</el-tag>
         </template>

@@ -42,7 +42,7 @@ import { ref, computed, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import SeasonSelect from '../utils/seasonSelect.vue'
 import { useSeasonData } from '../components/useSeasonUtils'
-
+import { useDebounceFn } from '@vueuse/core'
 const props = defineProps({
   mode: {
     type: String,
@@ -107,7 +107,55 @@ function buildSearchText(item) {
     .join('|')
     .toUpperCase()
 }
+// const indexedList = computed(() =>
+//   props.list.map(item => ({
+//     raw: item,
 
+//     flightNumber:
+//       item.flightNumber?.toUpperCase() || '',
+
+//     airports:
+//       `${item.departure || ''}|${item.arrival || ''}`
+//         .toUpperCase(),
+
+//     aircraft:
+//       item.aircraftType?.toUpperCase() || '',
+
+//     season:
+//       item.season?.toUpperCase() || '',
+
+//     routes:
+//       item.matchingRoutes
+//         ?.map(r => r.routeCode)
+//         .join('|')
+//         .toUpperCase() || '',
+
+//     countries:
+//       item.matchingRoutes
+//         ?.flatMap(
+//           r => r.overflyCountry || []
+//         )
+//         .map(
+//           c => c.country || ''
+//         )
+//         .join('|')
+//         .toUpperCase() || '',
+
+//     allText: ''
+//   }))
+// )
+
+// indexedList.value.forEach(i => {
+//   i.allText =
+//     [
+//       i.flightNumber,
+//       i.airports,
+//       i.aircraft,
+//       i.routes,
+//       i.countries,
+//       i.season
+//     ].join('|')
+// })
 /**
  * 字段映射
  */
@@ -235,19 +283,27 @@ function resetSearch() {
 
   searchData()
 }
+const debouncedSearch = useDebounceFn(
+  searchData,
+  200
+)
 
 watch(
-  [
-    () => props.list,
-    keyword,
-    season
-  ],
-  searchData,
-  {
-    immediate: true,
-    deep: true
-  }
+  [keyword, season],
+  debouncedSearch
 )
+// watch(
+//   [
+//     () => props.list,
+//     keyword,
+//     season
+//   ],
+//   searchData,
+//   {
+//     immediate: true,
+//     deep: true
+//   }
+// )
 </script>
 
 <style scoped>
@@ -301,7 +357,7 @@ watch(
 
 .season-select {
 
-  width:10%;
+  width: 10%;
 }
 
 .quick-tags {

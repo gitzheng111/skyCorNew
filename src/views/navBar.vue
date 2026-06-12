@@ -73,6 +73,10 @@ const handleSelect = (key) => {
     case '4-3':
       router.push('/countryList');
       break;
+
+    case '5-1':
+      router.push('/routeAnalysis');
+      break;
   }
   console.log('router', router)
   // 修复4：删除 activeIndex.value = key（不要手动修改，由watch自动更新）
@@ -82,6 +86,9 @@ watch(
   () => route.path, // 关键修复：用 route.path 而不是 router.path
 
   (newPath) => {
+    if (newPath === '/routeAnalysis') {
+      activeIndex.value = '5-1';
+    }
     if (newPath === '/airportInfo') {
       activeIndex.value = '4-1';
     }
@@ -94,7 +101,7 @@ watch(
     if (newPath === '/overflyData') {
       activeIndex.value = '3-2';
     }
-    
+
     if (newPath === '/routeManage') {
       activeIndex.value = '3-1';
     }
@@ -142,7 +149,7 @@ watch(() => infoData.value, (val) => {
     <el-sub-menu index="3">
       <template #title>航路管理</template>
       <el-menu-item index="3-1">航路信息</el-menu-item>
-   
+
       <el-menu-item index="3-2">飞越数据管理</el-menu-item>
 
     </el-sub-menu>
@@ -150,8 +157,17 @@ watch(() => infoData.value, (val) => {
       <template #title>基础数据</template>
       <el-menu-item index="4-1">机场数据</el-menu-item>
       <el-menu-item index="4-2">机型数据</el-menu-item>
-         <el-menu-item index="4-3">飞越国家管理</el-menu-item>
+      <el-menu-item index="4-3">飞越国家管理</el-menu-item>
 
+
+    </el-sub-menu>
+    <el-sub-menu index="5">
+      <template #title>AI数据分析</template>
+      <el-menu-item index="5-1">全球飞越数据分析</el-menu-item>
+    </el-sub-menu>
+    <el-sub-menu index="6">
+      <template #title>系统设置</template>
+      <el-menu-item index="6-1">用户管理</el-menu-item>
     </el-sub-menu>
     <div class="button-row">
       <el-badge :value="unreadCount" class="item">

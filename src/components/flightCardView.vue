@@ -1,6 +1,6 @@
 <template>
 
-    <div class="flight-card" @click="$emit('select', flight)">
+    <div class="flight-card" :class="{ selected }" @click="$emit('select', flight)">
 
         <!-- 顶部 -->
 
@@ -8,28 +8,28 @@
 
             <div class="left">
                 <div class="left-flight-content">
-                    <el-checkbox :model-value="selected" @change="$emit('select', flight)" />
+                    <!-- <el-checkbox :model-value="selected" @change="$emit('select', flight)" /> -->
 
                     <span class="flight-number">
                         {{ flight.flightNumber }}
                     </span>
-                <div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
 
-   <el-tag round size="small">
-                        {{ flight.aircraftType }}
-                    </el-tag>
+                        <el-tag round size="small">
+                            {{ flight.aircraftType }}
+                        </el-tag>
 
-                    <el-tag round size="small" type="warning" effect="light">
-                        {{ flight.season }}
-                    </el-tag>
-                    <el-tag round :type="flight.attribution?.toUpperCase() === 'SCHEDULED'
-                        ? 'success'
-                        : 'warning'
-                        ">
-                        {{ flight.attribution }}
-                    </el-tag>
-                </div>
-                 
+                        <el-tag round size="small" type="warning" effect="light">
+                            {{ flight.season }}
+                        </el-tag>
+                        <el-tag round :type="flight.attribution?.toUpperCase() === 'SCHEDULED'
+                            ? 'success'
+                            : 'warning'
+                            ">
+                            {{ flight.attribution }}
+                        </el-tag>
+                    </div>
+
                 </div>
 
 
@@ -37,7 +37,7 @@
 
                 <div class="days">
 
-                    <daysPicker v-if="mode === 'edit'" v-model="flight.days" />
+                    <daysPicker v-if="props.mode === 'edit'" v-model="flight.days" />
 
                     <DaysShow v-else :days="flight.days" />
 
@@ -56,12 +56,12 @@
                     <div class="time">
                         {{ flight.departureTime }}
                         <!-- {{ departureTime }} -->
-                        <div>
-                            <el-tag size="mini" class="ml-1">
-                                UTC|{{ beijingToUTC(flight.departureTime ) }}</el-tag>
-                            <el-tag size="mini" class="ml-1" type="danger">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <el-tag size="small" class="ml-1">
+                                UTC|{{ beijingToUTC(flight.departureTime) }}</el-tag>
+                            <el-tag size="small" class="ml-1" type="danger">
                                 <!-- {{flight.departure}} -->
-                                LCT|{{ beijingToLocal(flight.departureTime , flight.departure) }}</el-tag>
+                                LCT|{{ beijingToLocal(flight.departureTime, flight.departure) }}</el-tag>
                         </div>
 
                     </div>
@@ -102,10 +102,10 @@
 
                     <div class="time">
                         {{ flight.arrivalTime }}
-                         <div>
-                            <el-tag size="mini" class="ml-1">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <el-tag size="small" class="ml-1">
                                 UTC|{{ beijingToUTC(flight.arrivalTime) }}</el-tag>
-                            <el-tag size="mini" class="ml-1" type="danger">
+                            <el-tag size="small" class="ml-1" type="danger">
                                 <!-- {{flight.departure}} -->
                                 LCT|{{ beijingToLocal(flight.arrivalTime, flight.arrival) }}</el-tag>
                         </div>
@@ -154,7 +154,9 @@ const props = defineProps({
 
     timeMode: String,
 
-    formatTime: Function
+    formatTime: Function,
+    
+    mode:String
 })
 
 defineEmits([
@@ -209,9 +211,14 @@ const totalRouteCount = computed(() =>
 
     transform: translateY(-2px);
 }
-
+.flight-card.selected {
+    border: 1px solid #409eff;
+    background: #f0f7ff;
+    box-shadow: 0 6px 20px rgba(64, 158, 255, 0.15);
+    transform: translateY(-2px);
+}
 .card-header {
-       display: flex;
+    display: flex;
     gap: 24px;
     align-items: flex-start;
 
@@ -231,15 +238,15 @@ const totalRouteCount = computed(() =>
 
     align-items: center; */
     width: 260px;
- flex-shrink: 0;
+    flex-shrink: 0;
     /* gap: 14px; */
 }
 
 .left-flight-content {
-     display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-/* 
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    /* 
     display: flex;
 
     align-items: center;
@@ -266,7 +273,7 @@ const totalRouteCount = computed(() =>
 .flight-main {
 
     min-width: 0;
-  display: flex;
+    display: flex;
     align-items: center;
     gap: 16px;
     width: 100%;
@@ -274,8 +281,8 @@ const totalRouteCount = computed(() =>
 }
 
 .airport {
-        flex: 0 0 220px;
-        /* flex: 1; */
+    flex: 0 0 220px;
+    /* flex: 1; */
     min-width: 80px;
 
     /* width: 140px; */
@@ -298,9 +305,9 @@ const totalRouteCount = computed(() =>
 }
 
 .route-center {
-      flex: 2;
+    flex: 2;
     min-width: 0;
-/* 
+    /* 
     flex: 1;
 
     text-align: center;

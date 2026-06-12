@@ -58,6 +58,13 @@ const routes = [
     component: () => import('/src/views/infoCenter.vue')
    
   }
+  ,
+  {
+    path: '/routeAnalysis',
+    name: 'routeAnalysis',
+    component: () => import('/src/views/routeAnalysis.vue')
+   
+  }
 ]
 
 const router = createRouter({

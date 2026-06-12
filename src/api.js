@@ -20,6 +20,8 @@ export const getTaskList = () => api.get('/taskList');
 export const getOverflyData = () => api.get('/overflyData');
 export const getInfoCenter = () => api.get('/infoCenter');
 export const getCountryRiskCache = () => api.get('/riskAnalysis/getCountryRiskCache');
+export const getRouteFromOpenSky = (params) => api.get('/opensky/departures',{ params});
+export const getRouteAnalysis = (params) => api.get('/opensky/analyze',{ params});
 
 
 // export const addFlights = (addFlightForm) => api.get(

@@ -9,7 +9,9 @@
 <script setup>
 import { getFlights, getRoutes, getPermission, flightsData, aircraftData, getAircraftType, getAirportCode, getTaskList } from '../api.js';
 import { ref, reactive, computed, onMounted, provide, watch, nextTick, onBeforeUnmount, onUnmounted, onActivated } from 'vue'
-import flightList from '../components/flightListTool.vue'
+// import flightList from '../components/flightListTool.vue'
+import flightList from '@/utils/flightList/FlightListTool.vue'
+
 import { useRoute, onBeforeRouteUpdate } from 'vue-router'
 import { useOverflyStore } from '../store/overfly.js'
 const route = useRoute()
